@@ -1,0 +1,24 @@
+[project]
+name = "ecom-llm-checker"
+version = "0.1.0"
+description = "Ecommerce AI/LLM readiness checker"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "playwright",
+  "httpx",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-timeout",
+  "python-dotenv",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+timeout = 30
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core", "core.*", "checks", "checks.*"]
