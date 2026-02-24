@@ -4,11 +4,24 @@ from checks.discovery import DISCOVERY_PATHS, DiscoveryCheck
 from core.models import Severity
 
 
+def _content_type_for(path: str) -> str:
+    return "text/plain" if path.endswith(".txt") else "application/json"
+
+
+def _artifact(path: str, status_code: int, text: str, content_type: str | None = None, final_url: str | None = None) -> dict:
+    return {
+        "status_code": status_code,
+        "text": text,
+        "content_type": content_type if content_type is not None else _content_type_for(path),
+        "final_url": final_url if final_url is not None else f"https://example.com{path}",
+    }
+
+
 @pytest.mark.asyncio
 async def test_discovery_all_found():
     check = DiscoveryCheck()
     artifacts = {
-        path.lstrip("/"): {"status_code": 200, "text": f"content for {path}"}
+        path.lstrip("/"): _artifact(path, 200, f"content for {path}")
         for path in DISCOVERY_PATHS
     }
 
@@ -22,7 +35,7 @@ async def test_discovery_all_found():
 @pytest.mark.asyncio
 async def test_discovery_none_found():
     check = DiscoveryCheck()
-    artifacts = {path.lstrip("/"): {"status_code": 404, "text": ""} for path in DISCOVERY_PATHS}
+    artifacts = {path.lstrip("/"): _artifact(path, 404, "") for path in DISCOVERY_PATHS}
 
     result = await check.run("https://example.com", artifacts)
 
@@ -34,11 +47,11 @@ async def test_discovery_none_found():
 async def test_discovery_partial_found():
     check = DiscoveryCheck()
     artifacts = {
-        DISCOVERY_PATHS[0].lstrip("/"): {"status_code": 200, "text": "ok"},
-        DISCOVERY_PATHS[1].lstrip("/"): {"status_code": 200, "text": "ok"},
-        DISCOVERY_PATHS[2].lstrip("/"): {"status_code": 404, "text": ""},
-        DISCOVERY_PATHS[3].lstrip("/"): {"status_code": 404, "text": ""},
-        DISCOVERY_PATHS[4].lstrip("/"): {"status_code": 404, "text": ""},
+        DISCOVERY_PATHS[0].lstrip("/"): _artifact(DISCOVERY_PATHS[0], 200, "ok"),
+        DISCOVERY_PATHS[1].lstrip("/"): _artifact(DISCOVERY_PATHS[1], 200, "ok"),
+        DISCOVERY_PATHS[2].lstrip("/"): _artifact(DISCOVERY_PATHS[2], 404, ""),
+        DISCOVERY_PATHS[3].lstrip("/"): _artifact(DISCOVERY_PATHS[3], 404, ""),
+        DISCOVERY_PATHS[4].lstrip("/"): _artifact(DISCOVERY_PATHS[4], 404, ""),
     }
 
     result = await check.run("https://example.com", artifacts)
@@ -52,7 +65,7 @@ async def test_discovery_preview_truncated():
     check = DiscoveryCheck()
     long_text = "x" * 300
     artifacts = {
-        path.lstrip("/"): {"status_code": 200, "text": long_text}
+        path.lstrip("/"): _artifact(path, 200, long_text)
         for path in DISCOVERY_PATHS
     }
 
@@ -65,7 +78,35 @@ async def test_discovery_preview_truncated():
 @pytest.mark.asyncio
 async def test_discovery_500_treated_not_found():
     check = DiscoveryCheck()
-    artifacts = {path.lstrip("/"): {"status_code": 500, "text": "boom"} for path in DISCOVERY_PATHS}
+    artifacts = {path.lstrip("/"): _artifact(path, 500, "boom") for path in DISCOVERY_PATHS}
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert all(signal.value == "not_found" for signal in result.signals)
+
+
+@pytest.mark.asyncio
+async def test_discovery_wrong_content_type_treated_not_found():
+    check = DiscoveryCheck()
+    artifacts = {
+        path.lstrip("/"): _artifact(path, 200, "<html>redirect page</html>", content_type="text/html")
+        for path in DISCOVERY_PATHS
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert all(signal.value == "not_found" for signal in result.signals)
+
+
+@pytest.mark.asyncio
+async def test_discovery_redirected_path_treated_not_found():
+    check = DiscoveryCheck()
+    artifacts = {
+        path.lstrip("/"): _artifact(path, 200, "ok", final_url="https://example.com/login")
+        for path in DISCOVERY_PATHS
+    }
 
     result = await check.run("https://example.com", artifacts)
 

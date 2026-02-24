@@ -64,7 +64,13 @@ class Scanner:
 
         artifacts = {artifact_key: response for (artifact_key, _), response in zip(targets, responses)}
         for discovery_path in DISCOVERY_PATHS:
-            artifacts.setdefault(discovery_path.lstrip("/"), artifacts.get(discovery_path.lstrip("/"), {"status_code": None, "text": ""}))
+            artifacts.setdefault(
+                discovery_path.lstrip("/"),
+                artifacts.get(
+                    discovery_path.lstrip("/"),
+                    {"status_code": None, "text": "", "content_type": None, "final_url": None},
+                ),
+            )
         return artifacts
 
     @staticmethod
@@ -72,5 +78,10 @@ class Scanner:
         try:
             response = await client.get(target_url)
         except httpx.HTTPError:
-            return {"status_code": None, "text": ""}
-        return {"status_code": response.status_code, "text": response.text}
+            return {"status_code": None, "text": "", "content_type": None, "final_url": None}
+        return {
+            "status_code": response.status_code,
+            "text": response.text,
+            "content_type": response.headers.get("content-type"),
+            "final_url": str(response.url),
+        }
