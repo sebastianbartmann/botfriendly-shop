@@ -15,7 +15,7 @@
       <form class="scan-form" action="/scan" method="post">
         <label for="url">Site URL</label>
         <div class="form-row">
-          <input id="url" name="url" type="url" placeholder="https://your-store.com" required value="{{ url or '' }}" />
+          <input id="url" name="url" type="text" placeholder="e.g. vorwerk.de" required value="{{ url or '' }}" />
           <button type="submit">Start Scan</button>
         </div>
         {% if error %}

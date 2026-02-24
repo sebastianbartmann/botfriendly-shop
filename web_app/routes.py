@@ -53,6 +53,13 @@ def _is_valid_url(url: str) -> bool:
     return candidate.startswith("http://") or candidate.startswith("https://")
 
 
+def _normalize_url(url: str) -> str:
+    candidate = (url or "").strip()
+    if candidate and not candidate.startswith(("http://", "https://")):
+        return f"https://{candidate}"
+    return candidate
+
+
 def _json_safe(payload: Any) -> Any:
     if isinstance(payload, dict):
         return {k: _json_safe(v) for k, v in payload.items()}
@@ -79,7 +86,7 @@ async def home(request: Request):
 @router.post("/scan")
 async def start_scan(request: Request):
     form = await request.form()
-    raw_url = str(form.get("url", "")).strip()
+    raw_url = _normalize_url(str(form.get("url", "")))
 
     if not _is_valid_url(raw_url):
         templates = request.app.state.templates

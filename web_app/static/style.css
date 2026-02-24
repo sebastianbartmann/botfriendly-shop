@@ -56,7 +56,7 @@ h2 { font-size: 1.1rem; margin-bottom: .9rem; }
   gap: .65rem;
 }
 
-input[type="url"] {
+.scan-form input[name="url"] {
   flex: 1;
   min-width: 0;
   background: #0f1218;
