@@ -6,4 +6,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8084:8084"
+    volumes:
+      - ecom_checker_data:/app/data
     restart: unless-stopped
+
+volumes:
+  ecom_checker_data:

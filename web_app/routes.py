@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from dataclasses import asdict
+from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import select, update
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sse_starlette.sse import EventSourceResponse
 
 from checks.api_surface import APISurfaceCheck
@@ -17,9 +23,12 @@ from checks.robots import AI_BOTS, TIER_LABELS, RobotsCheck
 from checks.seo_meta import SeoMetaCheck
 from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
+from core.database import async_session_factory, init_db
+from core.db_models import ScanCheckRecord, ScanRecord
 from core.models import CheckResult
 from core.scanner import Scanner
 from core.scoring import calculate_overall_score, get_grade
+from core.version import SCANNER_VERSION
 
 router = APIRouter()
 
@@ -46,6 +55,7 @@ CATEGORY_LABELS = {
 }
 
 scans: dict[str, dict[str, Any]] = {}
+scan_tasks: dict[str, asyncio.Task[None]] = {}
 
 
 def _is_valid_url(url: str) -> bool:
@@ -58,6 +68,17 @@ def _normalize_url(url: str) -> str:
     if candidate and not candidate.startswith(("http://", "https://")):
         return f"https://{candidate}"
     return candidate
+
+
+def _extract_domain(url: str) -> str:
+    hostname = (urlparse(url).hostname or "").lower()
+    if hostname.startswith("www."):
+        hostname = hostname[4:]
+    return hostname
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _json_safe(payload: Any) -> Any:
@@ -75,6 +96,279 @@ def _serialize_check_result(result: CheckResult) -> dict[str, Any]:
     data = _json_safe(raw)
     data["category_label"] = CATEGORY_LABELS.get(result.category, result.category.replace("_", " ").title())
     return data
+
+
+def _check_event_from_result(result: CheckResult) -> dict[str, Any]:
+    result_payload = _serialize_check_result(result)
+    return {
+        "type": "check",
+        "category": result.category,
+        "category_label": result_payload["category_label"],
+        "score": result.score,
+        "severity": result.severity.value,
+        "signals": result_payload["signals"],
+        "details": result_payload["details"],
+        "recommendations": result.recommendations,
+    }
+
+
+def _events_from_result_json(result_json: str) -> list[dict[str, Any]]:
+    try:
+        payload = json.loads(result_json)
+    except (TypeError, json.JSONDecodeError):
+        return []
+
+    check_results = payload.get("check_results")
+    if not isinstance(check_results, list):
+        return []
+
+    events: list[dict[str, Any]] = []
+    for check in check_results:
+        if not isinstance(check, dict):
+            continue
+        category = str(check.get("category", ""))
+        events.append(
+            {
+                "type": "check",
+                "category": category,
+                "category_label": check.get(
+                    "category_label",
+                    CATEGORY_LABELS.get(category, category.replace("_", " ").title()),
+                ),
+                "score": float(check.get("score", 0.0)),
+                "severity": str(check.get("severity", "inconclusive")),
+                "signals": check.get("signals", []),
+                "details": check.get("details", {}),
+                "recommendations": check.get("recommendations", []),
+            }
+        )
+    return events
+
+
+async def _insert_scan(scan_id: str, url: str, source: str, status: str) -> None:
+    now = _now_iso()
+    async with async_session_factory() as session:
+        session.add(
+            ScanRecord(
+                id=scan_id,
+                domain=_extract_domain(url),
+                normalized_url=url,
+                source=source,
+                status=status,
+                scanner_version=SCANNER_VERSION,
+                started_at=now,
+                created_at=now,
+            )
+        )
+        await session.commit()
+
+
+async def _upsert_scan_check(scan_id: str, event: dict[str, Any]) -> None:
+    stmt = (
+        sqlite_insert(ScanCheckRecord)
+        .values(
+            scan_id=scan_id,
+            category=event["category"],
+            score=event["score"],
+            severity=event.get("severity"),
+            details_json=json.dumps(event.get("details", {})),
+            signals_json=json.dumps(event.get("signals", [])),
+        )
+        .on_conflict_do_update(
+            index_elements=["scan_id", "category"],
+            set_={
+                "score": event["score"],
+                "severity": event.get("severity"),
+                "details_json": json.dumps(event.get("details", {})),
+                "signals_json": json.dumps(event.get("signals", [])),
+            },
+        )
+    )
+    async with async_session_factory() as session:
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def _complete_scan(scan_id: str, overall_score: float, grade: str, duration_ms: int, result_payload: dict[str, Any]) -> None:
+    await _update_scan(
+        scan_id,
+        {
+            "status": "complete",
+            "overall_score": overall_score,
+            "grade": grade,
+            "duration_ms": duration_ms,
+            "result_json": json.dumps(_json_safe(result_payload)),
+            "completed_at": _now_iso(),
+            "error": None,
+        },
+    )
+
+
+async def _fail_scan(scan_id: str, error: str, duration_ms: int | None = None) -> None:
+    values: dict[str, Any] = {
+        "status": "error",
+        "error": error,
+        "completed_at": _now_iso(),
+    }
+    if duration_ms is not None:
+        values["duration_ms"] = duration_ms
+    await _update_scan(scan_id, values)
+
+
+async def _update_scan(scan_id: str, values: dict[str, Any]) -> None:
+    async with async_session_factory() as session:
+        await session.execute(update(ScanRecord).where(ScanRecord.id == scan_id).values(**values))
+        await session.commit()
+
+
+async def _load_scan_record(scan_id: str) -> ScanRecord | None:
+    async with async_session_factory() as session:
+        result = await session.execute(select(ScanRecord).where(ScanRecord.id == scan_id))
+        return result.scalar_one_or_none()
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    text = value.strip()
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+async def _find_cached_complete_scan(domain: str) -> ScanRecord | None:
+    threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(ScanRecord)
+            .where(
+                ScanRecord.domain == domain,
+                ScanRecord.scanner_version == SCANNER_VERSION,
+                ScanRecord.status == "complete",
+                ScanRecord.completed_at.is_not(None),
+            )
+            .order_by(ScanRecord.completed_at.desc())
+        )
+        for record in result.scalars():
+            completed_at = _parse_iso_datetime(record.completed_at)
+            if completed_at is not None and completed_at >= threshold:
+                return record
+    return None
+
+
+async def _load_scan_state(scan_id: str) -> dict[str, Any] | None:
+    if scan_id in scans:
+        return scans[scan_id]
+
+    record = await _load_scan_record(scan_id)
+    if record is None:
+        return None
+
+    state = {
+        "url": record.normalized_url,
+        "status": record.status,
+        "results": _events_from_result_json(record.result_json or "") if record.status == "complete" else [],
+        "overall": record.overall_score,
+        "grade": record.grade,
+        "error": record.error,
+    }
+    scans[scan_id] = state
+    return state
+
+
+def _complete_event(scan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "complete",
+        "overall_score": scan.get("overall"),
+        "grade": scan.get("grade"),
+        "check_count": len(scan.get("results", [])),
+    }
+
+
+def _error_event(error: str | None) -> dict[str, Any]:
+    message = (error or "Scan failed").strip()
+    if not message.startswith("Scan failed:"):
+        message = f"Scan failed: {message}"
+    return {"type": "error", "message": message}
+
+
+async def _stream_from_scan_state(request: Request, scan_id: str) -> Any:
+    emitted = 0
+    while True:
+        if await request.is_disconnected():
+            return
+
+        scan = scans.get(scan_id)
+        if scan is None:
+            return
+
+        while emitted < len(scan["results"]):
+            if await request.is_disconnected():
+                return
+            yield {"data": json.dumps(scan["results"][emitted])}
+            emitted += 1
+
+        status = scan.get("status")
+        if status == "complete":
+            yield {"data": json.dumps(_complete_event(scan))}
+            return
+        if status == "error":
+            yield {"data": json.dumps(_error_event(scan.get("error")))}
+            return
+
+        await asyncio.sleep(0.1)
+
+
+async def _run_web_scan(scan_id: str, url: str) -> None:
+    check_results: list[CheckResult] = []
+    started = time.perf_counter()
+
+    try:
+        scanner = Scanner(checks=[])
+        artifacts = await scanner._http_pass(url)
+
+        for check in CHECKS:
+            result = await check.run(url, artifacts)
+            check_results.append(result)
+
+            check_event = _check_event_from_result(result)
+            scans[scan_id]["results"].append(check_event)
+            await _upsert_scan_check(scan_id, check_event)
+
+        overall_score = calculate_overall_score(check_results)
+        grade = get_grade(overall_score)
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        scan_result_payload = {
+            "url": url,
+            "overall_score": overall_score,
+            "check_results": [_serialize_check_result(item) for item in check_results],
+            "metadata": {"check_count": len(check_results), "grade": grade},
+        }
+
+        scans[scan_id]["status"] = "complete"
+        scans[scan_id]["overall"] = overall_score
+        scans[scan_id]["grade"] = grade
+        await _complete_scan(scan_id, overall_score, grade, duration_ms, scan_result_payload)
+    except Exception as exc:
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        scans[scan_id]["status"] = "error"
+        scans[scan_id]["error"] = str(exc)
+        await _fail_scan(scan_id, str(exc), duration_ms)
+    finally:
+        scan_tasks.pop(scan_id, None)
+
+
+def _ensure_scan_task(scan_id: str, url: str) -> None:
+    existing = scan_tasks.get(scan_id)
+    if existing is not None and not existing.done():
+        return
+    scan_tasks[scan_id] = asyncio.create_task(_run_web_scan(scan_id, url))
 
 
 @router.get("/")
@@ -111,7 +405,12 @@ async def bots_page(request: Request):
 
 
 @router.post("/scan")
-async def start_scan(request: Request):
+async def start_scan(
+    request: Request,
+    force: bool = Query(False),
+    rescan: bool = Query(False),
+):
+    await init_db()
     form = await request.form()
     raw_url = _normalize_url(str(form.get("url", "")))
 
@@ -127,21 +426,30 @@ async def start_scan(request: Request):
             status_code=400,
         )
 
+    bypass_cache = force or rescan
+    domain = _extract_domain(raw_url)
+    if not bypass_cache and domain:
+        cached_record = await _find_cached_complete_scan(domain)
+        if cached_record is not None:
+            return RedirectResponse(url=f"/results/{cached_record.id}", status_code=303)
+
     scan_id = str(uuid4())
     scans[scan_id] = {
         "url": raw_url,
-        "status": "pending",
+        "status": "running",
         "results": [],
         "overall": None,
         "grade": None,
         "error": None,
     }
+    await _insert_scan(scan_id, raw_url, source="web", status="running")
     return RedirectResponse(url=f"/results/{scan_id}", status_code=303)
 
 
 @router.get("/results/{scan_id}")
 async def results_page(request: Request, scan_id: str):
-    scan = scans.get(scan_id)
+    await init_db()
+    scan = await _load_scan_state(scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
@@ -151,110 +459,107 @@ async def results_page(request: Request, scan_id: str):
         {
             "request": request,
             "scan_id": scan_id,
+            "scan_data": scan,
             "url": scan["url"],
             "check_count": len(CHECKS),
             "categories": [check.__class__.__name__ for check in CHECKS],
             "category_labels": CATEGORY_LABELS,
+            "preloaded_complete": scan["status"] == "complete",
+            "preloaded_results": scan["results"] if scan["status"] == "complete" else [],
+            "preloaded_overall": scan["overall"] if scan["status"] == "complete" else None,
+            "preloaded_grade": scan["grade"] if scan["status"] == "complete" else None,
         },
     )
 
 
 @router.get("/api/stream/{scan_id}")
 async def stream_scan(request: Request, scan_id: str):
-    scan = scans.get(scan_id)
+    await init_db()
+    scan = await _load_scan_state(scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
     async def event_generator():
-        url = scan["url"]
-        start_event = {"type": "start", "url": url, "check_count": len(CHECKS)}
+        start_event = {"type": "start", "url": scan["url"], "check_count": len(CHECKS)}
         yield {"data": json.dumps(start_event)}
 
-        if scan.get("status") == "complete" and scan.get("results"):
-            for prior in scan["results"]:
+        latest = scans.get(scan_id)
+        if latest is None:
+            return
+
+        if latest.get("status") == "complete":
+            for prior in latest["results"]:
                 if await request.is_disconnected():
                     return
                 yield {"data": json.dumps(prior)}
-            yield {
-                "data": json.dumps(
-                    {
-                        "type": "complete",
-                        "overall_score": scan.get("overall"),
-                        "grade": scan.get("grade"),
-                        "check_count": len(scan["results"]),
-                    }
-                )
-            }
+            yield {"data": json.dumps(_complete_event(latest))}
             return
 
-        scan["status"] = "running"
-        scan["results"] = []
-        scan["overall"] = None
-        scan["grade"] = None
-        scan["error"] = None
-        check_results: list[CheckResult] = []
+        if latest.get("status") == "error":
+            yield {"data": json.dumps(_error_event(latest.get("error")))}
+            return
 
-        try:
-            scanner = Scanner(checks=[])
-            artifacts = await scanner._http_pass(url)
-
-            for check in CHECKS:
-                if await request.is_disconnected():
-                    return
-
-                result = await check.run(url, artifacts)
-                check_results.append(result)
-
-                result_payload = _serialize_check_result(result)
-                check_event = {
-                    "type": "check",
-                    "category": result.category,
-                    "category_label": result_payload["category_label"],
-                    "score": result.score,
-                    "severity": result.severity.value,
-                    "signals": result_payload["signals"],
-                    "details": result_payload["details"],
-                    "recommendations": result.recommendations,
-                }
-                scan["results"].append(check_event)
-                yield {"data": json.dumps(check_event)}
-
-            overall_score = calculate_overall_score(check_results)
-            grade = get_grade(overall_score)
-            complete_event = {
-                "type": "complete",
-                "overall_score": overall_score,
-                "grade": grade,
-                "check_count": len(check_results),
-            }
-
-            scan["status"] = "complete"
-            scan["overall"] = overall_score
-            scan["grade"] = grade
-            yield {"data": json.dumps(complete_event)}
-
-        except Exception as exc:
-            scan["status"] = "error"
-            scan["error"] = str(exc)
-            error_event = {"type": "error", "message": f"Scan failed: {exc}"}
-            yield {"data": json.dumps(error_event)}
+        _ensure_scan_task(scan_id, latest["url"])
+        async for event in _stream_from_scan_state(request, scan_id):
+            yield event
 
     return EventSourceResponse(event_generator())
 
 
 @router.get("/api/v1/scan")
-async def scan_json(url: str = Query(..., description="Site URL to scan")):
-    if not _is_valid_url(url):
+async def scan_json(
+    url: str = Query(..., description="Site URL to scan"),
+    force: bool = Query(False),
+    rescan: bool = Query(False),
+):
+    await init_db()
+    normalized_url = url.strip()
+    if not _is_valid_url(normalized_url):
         return JSONResponse(
             status_code=400,
             content={"error": "Invalid URL. It must start with http:// or https://"},
         )
 
-    result = await Scanner().scan(url.strip())
-    payload = {
-        "url": result.url,
-        "overall_score": result.overall_score,
-        "metadata": _json_safe(result.metadata),
-        "check_results": [_serialize_check_result(item) for item in result.check_results],
-    }
-    return JSONResponse(content=payload)
+    bypass_cache = force or rescan
+    domain = _extract_domain(normalized_url)
+    if not bypass_cache and domain:
+        cached_record = await _find_cached_complete_scan(domain)
+        if cached_record is not None:
+            try:
+                payload = json.loads(cached_record.result_json or "{}")
+            except json.JSONDecodeError:
+                payload = {}
+            return JSONResponse(content=payload)
+
+    scan_id = str(uuid4())
+    await _insert_scan(scan_id, normalized_url, source="api", status="running")
+
+    started = time.perf_counter()
+    check_results: list[CheckResult] = []
+
+    try:
+        scanner = Scanner(checks=[])
+        artifacts = await scanner._http_pass(normalized_url)
+
+        for check in CHECKS:
+            result = await check.run(normalized_url, artifacts)
+            check_results.append(result)
+            await _upsert_scan_check(scan_id, _check_event_from_result(result))
+
+        overall_score = calculate_overall_score(check_results)
+        grade = get_grade(overall_score)
+        duration_ms = int((time.perf_counter() - started) * 1000)
+
+        payload = {
+            "url": normalized_url,
+            "overall_score": overall_score,
+            "metadata": {"check_count": len(check_results), "grade": grade},
+            "check_results": [_serialize_check_result(item) for item in check_results],
+        }
+        await _complete_scan(scan_id, overall_score, grade, duration_ms, payload)
+
+        return JSONResponse(content=payload)
+    except Exception as exc:
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        await _fail_scan(scan_id, str(exc), duration_ms)
+        raise

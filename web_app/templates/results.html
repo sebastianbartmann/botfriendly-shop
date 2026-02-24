@@ -42,6 +42,10 @@
     window.SCAN_CONTEXT = {
       scanId: "{{ scan_id }}",
       checkCount: Number("{{ check_count }}"),
+      preloadedComplete: {{ preloaded_complete|tojson }},
+      preloadedResults: {{ preloaded_results|tojson }},
+      preloadedOverall: {{ preloaded_overall|tojson }},
+      preloadedGrade: {{ preloaded_grade|tojson }},
       labels: {
         robots: "Robots.txt AI Bot Access",
         discovery: "AI Discovery Files",

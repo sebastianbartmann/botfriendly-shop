@@ -144,6 +144,13 @@
     errorBox.textContent = message;
   }
 
+  if (context.preloadedComplete) {
+    (context.preloadedResults || []).forEach((eventPayload) => renderCheckCard(eventPayload));
+    updateOverall(context.preloadedOverall, context.preloadedGrade);
+    loadingState.classList.add("hidden");
+    return;
+  }
+
   const stream = new EventSource(`/api/stream/${context.scanId}`);
 
   stream.onmessage = function (event) {
