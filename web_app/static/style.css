@@ -250,6 +250,27 @@ button:hover { filter: brightness(1.08); }
   font-size: .9rem;
 }
 
+.signal-list li {
+  margin-bottom: .2rem;
+}
+
+.tier-label {
+  color: #e5e7eb;
+  font-weight: 600;
+}
+
+.signal-pass {
+  color: var(--pass);
+}
+
+.signal-fail {
+  color: var(--fail);
+}
+
+.signal-muted {
+  color: var(--inconclusive);
+}
+
 .error {
   color: #fecaca;
   background: rgba(127, 29, 29, .25);
