@@ -27,6 +27,26 @@ body {
   margin: 2rem auto 1.5rem;
 }
 
+.top-nav {
+  display: flex;
+  gap: .4rem;
+  padding: .65rem .75rem;
+}
+
+.top-nav a {
+  color: #c7d2fe;
+  text-decoration: none;
+  padding: .38rem .6rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.top-nav a:hover,
+.top-nav a.is-active {
+  border-color: var(--border);
+  background: rgba(59, 130, 246, .12);
+}
+
 .card {
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border: 1px solid var(--border);
@@ -334,9 +354,83 @@ button:hover { filter: brightness(1.08); }
   background: rgba(59, 130, 246, .06);
 }
 
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .8rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  margin-bottom: 0;
+}
+
+.summary-value {
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+  font-weight: 750;
+  color: #f3f4f6;
+}
+
+.stats-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+  margin-bottom: 1rem;
+}
+
+.chart-card {
+  min-height: 300px;
+}
+
+.chart-wide {
+  grid-column: 1 / -1;
+  min-height: 240px;
+}
+
+.stats-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+}
+
+.stats-table th,
+.stats-table td {
+  white-space: nowrap;
+}
+
+.empty-cell {
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.signals-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+
+.signal-pill {
+  border: 1px solid rgba(239, 68, 68, .45);
+  background: rgba(127, 29, 29, .22);
+  color: #fecaca;
+  border-radius: 999px;
+  font-size: .84rem;
+  padding: .3rem .58rem;
+}
+
+.stats-link {
+  margin-top: 0;
+}
+
 @media (max-width: 700px) {
   .container { margin-top: 1rem; }
   .form-row { flex-direction: column; }
   .results-header { flex-direction: column; align-items: flex-start; }
   .overall-row { align-items: flex-start; flex-direction: column; }
+  .stats-summary,
+  .stats-charts-grid,
+  .stats-two-col { grid-template-columns: 1fr; }
+  .chart-wide { grid-column: auto; }
+  .top-nav { overflow-x: auto; }
 }

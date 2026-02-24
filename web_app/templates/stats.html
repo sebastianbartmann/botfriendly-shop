@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stats - Ecom LLM Readiness Checker</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <nav class="top-nav card">
+      <a href="/">Home</a>
+      <a href="/stats" class="is-active">Stats</a>
+      <a href="/bots">Bots</a>
+    </nav>
+
+    <header class="results-header card">
+      <div>
+        <h1>Scan Statistics Dashboard</h1>
+        <p class="subheadline">Aggregate scan quality, category performance, and trend signals.</p>
+      </div>
+      <div class="stats-meta">
+        <p class="muted">Min: {{ "%.2f"|format(score_stats.min) }} | Max: {{ "%.2f"|format(score_stats.max) }} | Median: {{ "%.2f"|format(score_stats.median) }}</p>
+      </div>
+    </header>
+
+    <section class="stats-summary">
+      <article class="card summary-card">
+        <p class="muted">Total Sites</p>
+        <p class="summary-value">{{ total_unique_domains }}</p>
+      </article>
+      <article class="card summary-card">
+        <p class="muted">Total Scans</p>
+        <p class="summary-value">{{ total_scans }}</p>
+      </article>
+      <article class="card summary-card">
+        <p class="muted">Average Score</p>
+        <p class="summary-value">{{ "%.2f"|format(avg_score) }}</p>
+      </article>
+      <article class="card summary-card">
+        <p class="muted">Most Common Grade</p>
+        <p class="summary-value">{{ dominant_grade }}</p>
+      </article>
+    </section>
+
+    <section class="stats-charts-grid">
+      <article class="card chart-card">
+        <h2>Grade Distribution</h2>
+        <canvas id="gradeChart" height="180"></canvas>
+      </article>
+      <article class="card chart-card">
+        <h2>Category Average Scores</h2>
+        <canvas id="categoryChart" height="180"></canvas>
+      </article>
+      <article class="card chart-card chart-wide">
+        <h2>Overall Score Distribution</h2>
+        <canvas id="histogramChart" height="130"></canvas>
+      </article>
+    </section>
+
+    <section class="stats-two-col">
+      <article class="card">
+        <h2>Top 10 Domains</h2>
+        <div class="table-wrap">
+          <table class="bots-table stats-table" id="top-domains-table">
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Avg Score</th>
+                <th>Grade</th>
+                <th>Scans</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if top_domains %}
+                {% for row in top_domains %}
+                  <tr>
+                    <td>{{ row.domain }}</td>
+                    <td>{{ "%.2f"|format(row.overall_score) }}</td>
+                    <td>{{ row.grade }}</td>
+                    <td>{{ row.scan_count }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="4" class="empty-cell">No scan data yet.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Bottom 10 Domains</h2>
+        <div class="table-wrap">
+          <table class="bots-table stats-table" id="bottom-domains-table">
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Avg Score</th>
+                <th>Grade</th>
+                <th>Scans</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if bottom_domains %}
+                {% for row in bottom_domains %}
+                  <tr>
+                    <td>{{ row.domain }}</td>
+                    <td>{{ "%.2f"|format(row.overall_score) }}</td>
+                    <td>{{ row.grade }}</td>
+                    <td>{{ row.scan_count }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="4" class="empty-cell">No scan data yet.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="card">
+      <h2>Recent Scans</h2>
+      <div class="table-wrap">
+        <table class="bots-table stats-table" id="recent-scans-table">
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Grade</th>
+              <th>Score</th>
+              <th>Completed</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if recent_scans %}
+              {% for row in recent_scans %}
+                <tr>
+                  <td>{{ row.domain }}</td>
+                  <td>{{ row.grade }}</td>
+                  <td>{{ "%.2f"|format(row.overall_score) }}</td>
+                  <td>{{ row.completed_at }}</td>
+                  <td><a class="subtle-link stats-link" href="/results/{{ row.scan_id }}">View</a></td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="5" class="empty-cell">No completed scans yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Most Common Failing Signals</h2>
+      <div class="signals-inline" id="failing-signals-list">
+        {% if failing_signals %}
+          {% for signal in failing_signals %}
+            <span class="signal-pill">{{ signal.name }} ({{ signal.count }})</span>
+          {% endfor %}
+        {% else %}
+          <span class="muted">No failing signals recorded yet.</span>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">Built by Sebastian Bartmann</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const dashboardData = {
+      grades: {{ grade_distribution|tojson }},
+      categoryLabels: {{ category_labels|tojson }},
+      categoryAverages: {{ category_averages|tojson }},
+      histogramLabels: {{ histogram_labels|tojson }},
+      histogramCounts: {{ histogram_counts|tojson }}
+    };
+
+    const chartPalette = {
+      blue: "#3b82f6",
+      blueSoft: "rgba(59, 130, 246, 0.2)",
+      green: "#22c55e",
+      greenSoft: "rgba(34, 197, 94, 0.2)",
+      yellow: "#eab308",
+      yellowSoft: "rgba(234, 179, 8, 0.22)",
+      orange: "#f97316",
+      red: "#ef4444",
+      gray: "#6b7280",
+      border: "#2a2f3a",
+      text: "#d1d5db"
+    };
+
+    Chart.defaults.color = chartPalette.text;
+    Chart.defaults.borderColor = chartPalette.border;
+
+    const gradeLabels = ["A+", "A", "B", "C", "D", "F"];
+    const gradeColors = ["#22c55e", "#4ade80", "#84cc16", "#facc15", "#f97316", "#ef4444"];
+    const gradeCounts = gradeLabels.map((label) => dashboardData.grades[label] || 0);
+    new Chart(document.getElementById("gradeChart"), {
+      type: "bar",
+      data: {
+        labels: gradeLabels,
+        datasets: [{
+          data: gradeCounts,
+          backgroundColor: gradeColors,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById("categoryChart"), {
+      type: "bar",
+      data: {
+        labels: dashboardData.categoryLabels,
+        datasets: [{
+          data: dashboardData.categoryAverages,
+          backgroundColor: chartPalette.blueSoft,
+          borderColor: chartPalette.blue,
+          borderWidth: 1.5,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { min: 0, max: 1 }
+        }
+      }
+    });
+
+    new Chart(document.getElementById("histogramChart"), {
+      type: "bar",
+      data: {
+        labels: dashboardData.histogramLabels,
+        datasets: [{
+          data: dashboardData.histogramCounts,
+          backgroundColor: chartPalette.yellowSoft,
+          borderColor: chartPalette.yellow,
+          borderWidth: 1.2,
+          borderRadius: 5
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

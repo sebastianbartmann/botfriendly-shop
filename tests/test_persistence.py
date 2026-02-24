@@ -7,19 +7,14 @@ import pytest_asyncio
 from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
 
 from core import database
-from core.db_models import Base, Scan, ScanCheck
+from core.db_models import Base, ScanCheckRecord as ScanCheck, ScanRecord as Scan
 
 
 @pytest_asyncio.fixture
 async def db_session(monkeypatch):
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = create_async_engine("sqlite+aiosqlite://")
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -32,6 +27,8 @@ async def db_session(monkeypatch):
 
     async with async_session() as session:
         yield session
+
+    await engine.dispose()
 
 
 def _scan(scan_id: str, domain: str) -> Scan:

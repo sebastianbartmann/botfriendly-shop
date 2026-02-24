@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sse_starlette.sse import EventSourceResponse
 
@@ -400,6 +400,271 @@ async def bots_page(request: Request):
             "request": request,
             "sections": sections,
             "bot_count": len(AI_BOTS),
+        },
+    )
+
+
+@router.get("/stats")
+async def stats_page(request: Request):
+    await init_db()
+    templates = request.app.state.templates
+
+    grade_order = ["A+", "A", "B", "C", "D", "F"]
+    category_order = list(CATEGORY_LABELS.keys())
+    category_averages = {category: 0.0 for category in category_order}
+
+    async with async_session_factory() as session:
+        total_unique_domains = (
+            await session.scalar(
+                text(
+                    """
+                    SELECT COUNT(DISTINCT domain)
+                    FROM scans
+                    """
+                )
+            )
+            or 0
+        )
+        total_scans = (await session.scalar(text("SELECT COUNT(*) FROM scans"))) or 0
+
+        grade_rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT grade, COUNT(*) AS grade_count
+                    FROM scans
+                    WHERE status = 'complete' AND grade IN ('A+', 'A', 'B', 'C', 'D', 'F')
+                    GROUP BY grade
+                    ORDER BY CASE grade
+                        WHEN 'A+' THEN 1
+                        WHEN 'A' THEN 2
+                        WHEN 'B' THEN 3
+                        WHEN 'C' THEN 4
+                        WHEN 'D' THEN 5
+                        WHEN 'F' THEN 6
+                        ELSE 7
+                    END
+                    """
+                )
+            )
+        ).all()
+        grade_distribution = {grade: 0 for grade in grade_order}
+        for grade, grade_count in grade_rows:
+            grade_distribution[grade] = grade_count
+
+        score_stats_row = (
+            await session.execute(
+                text(
+                    """
+                    WITH ranked_scores AS (
+                        SELECT
+                            overall_score,
+                            ROW_NUMBER() OVER (ORDER BY overall_score) AS row_num,
+                            COUNT(*) OVER () AS total_count
+                        FROM scans
+                        WHERE status = 'complete' AND overall_score IS NOT NULL
+                    ),
+                    median_scores AS (
+                        SELECT overall_score
+                        FROM ranked_scores
+                        WHERE row_num IN (
+                            CAST((total_count + 1) / 2 AS INTEGER),
+                            CAST((total_count + 2) / 2 AS INTEGER)
+                        )
+                    )
+                    SELECT
+                        MIN(overall_score) AS min_score,
+                        MAX(overall_score) AS max_score,
+                        AVG(overall_score) AS avg_score,
+                        (SELECT AVG(overall_score) FROM median_scores) AS median_score
+                    FROM scans
+                    WHERE status = 'complete' AND overall_score IS NOT NULL
+                    """
+                )
+            )
+        ).first()
+        if score_stats_row:
+            min_score = float(score_stats_row.min_score) if score_stats_row.min_score is not None else 0.0
+            max_score = float(score_stats_row.max_score) if score_stats_row.max_score is not None else 0.0
+            avg_score = float(score_stats_row.avg_score) if score_stats_row.avg_score is not None else 0.0
+            median_score = float(score_stats_row.median_score) if score_stats_row.median_score is not None else 0.0
+        else:
+            min_score = max_score = avg_score = median_score = 0.0
+
+        category_rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT sc.category, AVG(sc.score) AS avg_score
+                    FROM scan_checks sc
+                    INNER JOIN scans s ON s.id = sc.scan_id
+                    WHERE s.status = 'complete'
+                    GROUP BY sc.category
+                    """
+                )
+            )
+        ).all()
+        for category, category_avg in category_rows:
+            if category in category_averages:
+                category_averages[category] = float(category_avg or 0.0)
+
+        top_domains_rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT domain, AVG(overall_score) AS avg_score, COUNT(*) AS scan_count
+                    FROM scans
+                    WHERE status = 'complete' AND overall_score IS NOT NULL
+                    GROUP BY domain
+                    ORDER BY avg_score DESC, scan_count DESC, domain ASC
+                    LIMIT 10
+                    """
+                )
+            )
+        ).all()
+        top_domains = [
+            {
+                "domain": row.domain,
+                "overall_score": float(row.avg_score or 0.0),
+                "grade": get_grade(float(row.avg_score or 0.0)),
+                "scan_count": row.scan_count,
+            }
+            for row in top_domains_rows
+        ]
+
+        bottom_domains_rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT domain, AVG(overall_score) AS avg_score, COUNT(*) AS scan_count
+                    FROM scans
+                    WHERE status = 'complete' AND overall_score IS NOT NULL
+                    GROUP BY domain
+                    ORDER BY avg_score ASC, scan_count DESC, domain ASC
+                    LIMIT 10
+                    """
+                )
+            )
+        ).all()
+        bottom_domains = [
+            {
+                "domain": row.domain,
+                "overall_score": float(row.avg_score or 0.0),
+                "grade": get_grade(float(row.avg_score or 0.0)),
+                "scan_count": row.scan_count,
+            }
+            for row in bottom_domains_rows
+        ]
+
+        recent_rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id, domain, grade, overall_score, completed_at
+                    FROM scans
+                    WHERE status = 'complete'
+                    ORDER BY completed_at DESC
+                    LIMIT 20
+                    """
+                )
+            )
+        ).all()
+        recent_scans = [
+            {
+                "scan_id": row.id,
+                "domain": row.domain,
+                "grade": row.grade or "N/A",
+                "overall_score": float(row.overall_score or 0.0),
+                "completed_at": row.completed_at or "",
+            }
+            for row in recent_rows
+        ]
+
+        histogram_rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                        CASE
+                            WHEN overall_score >= 1 THEN 9
+                            WHEN overall_score < 0 THEN 0
+                            ELSE CAST(overall_score * 10 AS INTEGER)
+                        END AS bucket_index,
+                        COUNT(*) AS bucket_count
+                    FROM scans
+                    WHERE status = 'complete' AND overall_score IS NOT NULL
+                    GROUP BY bucket_index
+                    ORDER BY bucket_index
+                    """
+                )
+            )
+        ).all()
+        histogram_counts = [0] * 10
+        for row in histogram_rows:
+            idx = int(row.bucket_index)
+            if 0 <= idx < 10:
+                histogram_counts[idx] = int(row.bucket_count)
+
+        failing_signal_rows: list[Any] = []
+        try:
+            failing_signal_rows = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT json_extract(j.value, '$.name') AS signal_name, COUNT(*) AS fail_count
+                        FROM scan_checks sc,
+                             json_each(sc.signals_json) AS j
+                        WHERE json_valid(sc.signals_json)
+                          AND LOWER(COALESCE(json_extract(j.value, '$.severity'), '')) = 'fail'
+                          AND json_extract(j.value, '$.name') IS NOT NULL
+                        GROUP BY signal_name
+                        ORDER BY fail_count DESC, signal_name ASC
+                        LIMIT 15
+                        """
+                    )
+                )
+            ).all()
+        except Exception:
+            failing_signal_rows = []
+        failing_signals = [
+            {"name": str(row.signal_name), "count": int(row.fail_count)}
+            for row in failing_signal_rows
+        ]
+
+    dominant_grade = "N/A"
+    dominant_grade_count = 0
+    for grade in grade_order:
+        grade_count = grade_distribution.get(grade, 0)
+        if grade_count > dominant_grade_count:
+            dominant_grade = grade
+            dominant_grade_count = grade_count
+
+    histogram_labels = [f"{i / 10:.1f}-{(i + 1) / 10:.1f}" for i in range(10)]
+
+    return templates.TemplateResponse(
+        "stats.html",
+        {
+            "request": request,
+            "total_unique_domains": total_unique_domains,
+            "total_scans": total_scans,
+            "avg_score": avg_score,
+            "dominant_grade": dominant_grade,
+            "dominant_grade_count": dominant_grade_count,
+            "grade_distribution": grade_distribution,
+            "score_stats": {
+                "min": min_score,
+                "max": max_score,
+                "avg": avg_score,
+                "median": median_score,
+            },
+            "category_labels": [CATEGORY_LABELS[category] for category in category_order],
+            "category_averages": [category_averages[category] for category in category_order],
+            "top_domains": top_domains,
+            "bottom_domains": bottom_domains,
+            "recent_scans": recent_scans,
+            "failing_signals": failing_signals,
+            "histogram_labels": histogram_labels,
+            "histogram_counts": histogram_counts,
         },
     )
 

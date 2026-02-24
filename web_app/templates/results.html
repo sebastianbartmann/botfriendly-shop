@@ -8,6 +8,12 @@
 </head>
 <body>
   <main class="container" data-scan-id="{{ scan_id }}" data-check-count="{{ check_count }}">
+    <nav class="top-nav card">
+      <a href="/">Home</a>
+      <a href="/stats">Stats</a>
+      <a href="/bots">Bots</a>
+    </nav>
+
     <header class="results-header card">
       <h1>Scanning: <span class="url">{{ url }}</span></h1>
       <a class="secondary-link" href="/">Scan another site</a>
