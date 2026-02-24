@@ -3,7 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stats - Ecom LLM Readiness Checker</title>
+  <meta name="description" content="Check how ready your ecommerce site is for AI agents, crawlers, and bots. Free scan with actionable recommendations." />
+  <meta property="og:title" content="botfriendly.shop — Is your shop ready for AI?" />
+  <meta property="og:description" content="Scan your ecommerce site and get an AI-readiness score. Find gaps in structured data, robots.txt, sitemaps, and more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://botfriendly.shop" />
+  <title>Stats — botfriendly.shop</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -16,7 +22,7 @@
 
     <header class="results-header card">
       <div>
-        <h1>Scan Statistics Dashboard</h1>
+        <h1>Scan Statistics</h1>
         <p class="subheadline">Aggregate scan quality, category performance, and trend signals.</p>
       </div>
       <div class="stats-meta">
@@ -166,7 +172,7 @@
     </section>
   </main>
 
-  <footer class="site-footer">Built by Sebastian Bartmann</footer>
+  <footer class="site-footer">botfriendly.shop · built by Sebastian Bartmann</footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
@@ -178,25 +184,24 @@
       histogramCounts: {{ histogram_counts|tojson }}
     };
 
+    /* Chart palette — GB greens for the light theme */
     const chartPalette = {
-      blue: "#3b82f6",
-      blueSoft: "rgba(59, 130, 246, 0.2)",
-      green: "#22c55e",
-      greenSoft: "rgba(34, 197, 94, 0.2)",
-      yellow: "#eab308",
-      yellowSoft: "rgba(234, 179, 8, 0.22)",
-      orange: "#f97316",
-      red: "#ef4444",
-      gray: "#6b7280",
-      border: "#2a2f3a",
-      text: "#d1d5db"
+      green: "#306230",
+      greenSoft: "rgba(48, 98, 48, 0.15)",
+      greenLight: "#9BBC0F",
+      greenLightSoft: "rgba(155, 188, 15, 0.25)",
+      yellow: "#92820A",
+      yellowSoft: "rgba(146, 130, 10, 0.15)",
+      red: "#b91c1c",
+      border: "#d4d0c8",
+      text: "#374151"
     };
 
     Chart.defaults.color = chartPalette.text;
     Chart.defaults.borderColor = chartPalette.border;
 
     const gradeLabels = ["A+", "A", "B", "C", "D", "F"];
-    const gradeColors = ["#22c55e", "#4ade80", "#84cc16", "#facc15", "#f97316", "#ef4444"];
+    const gradeColors = ["#306230", "#4a8a4a", "#8BAC0F", "#C5A000", "#d97706", "#b91c1c"];
     const gradeCounts = gradeLabels.map((label) => dashboardData.grades[label] || 0);
     new Chart(document.getElementById("gradeChart"), {
       type: "bar",
@@ -224,8 +229,8 @@
         labels: dashboardData.categoryLabels,
         datasets: [{
           data: dashboardData.categoryAverages,
-          backgroundColor: chartPalette.blueSoft,
-          borderColor: chartPalette.blue,
+          backgroundColor: chartPalette.greenSoft,
+          borderColor: chartPalette.green,
           borderWidth: 1.5,
           borderRadius: 6
         }]
@@ -245,8 +250,8 @@
         labels: dashboardData.histogramLabels,
         datasets: [{
           data: dashboardData.histogramCounts,
-          backgroundColor: chartPalette.yellowSoft,
-          borderColor: chartPalette.yellow,
+          backgroundColor: chartPalette.greenLightSoft,
+          borderColor: chartPalette.greenLight,
           borderWidth: 1.2,
           borderRadius: 5
         }]

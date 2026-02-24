@@ -12,9 +12,9 @@
   const errorBox = document.getElementById("error-box");
 
   const severityColor = {
-    pass: "#22c55e",
-    partial: "#eab308",
-    fail: "#ef4444",
+    pass: "#306230",
+    partial: "#92820A",
+    fail: "#b91c1c",
     inconclusive: "#6b7280",
   };
 

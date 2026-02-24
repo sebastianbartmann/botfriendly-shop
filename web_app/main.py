@@ -43,6 +43,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: Exception):
+    templates = request.app.state.templates
+    return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+
+
 @app.middleware("http")
 async def request_context_middleware(request: Request, call_next):
     request_id = str(uuid4())

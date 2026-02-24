@@ -115,4 +115,4 @@ async def test_stats_page_empty_db_returns_200(stats_test_db):
         response = await client.get("/stats")
 
     assert response.status_code == 200
-    assert "Scan Statistics Dashboard" in response.text
+    assert "Scan Statistics" in response.text

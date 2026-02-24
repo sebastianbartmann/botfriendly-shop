@@ -67,7 +67,7 @@ async def test_results_page_for_nonexistent_scan_returns_404():
         response = await client.get("/results/nonexistent-id")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Scan not found"
+    assert "Page not found" in response.text
 
 
 @pytest.mark.asyncio

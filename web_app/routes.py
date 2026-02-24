@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select, text, update
@@ -400,6 +400,11 @@ def _ensure_scan_task(scan_id: str, url: str) -> None:
 async def home(request: Request):
     templates = request.app.state.templates
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@router.get("/robots.txt")
+async def robots_txt():
+    return PlainTextResponse("User-agent: *\nAllow: /\nSitemap: https://botfriendly.shop/sitemap.xml")
 
 
 @router.get("/bots")

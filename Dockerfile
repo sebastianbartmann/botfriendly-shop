@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    gosu \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -32,12 +33,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
 COPY . /app
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN pip install --no-cache-dir .
-RUN mkdir -p /app/data && chown -R app:app /app
+RUN mkdir -p /app/data && chown -R app:app /app && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8084
 
-USER app
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 CMD ["uvicorn", "web_app.main:app", "--host", "0.0.0.0", "--port", "8084"]

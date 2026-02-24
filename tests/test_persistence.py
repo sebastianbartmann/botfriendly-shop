@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -127,3 +128,79 @@ async def test_unique_constraint_on_scan_id_and_category(db_session: AsyncSessio
         await db_session.commit()
 
     await db_session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_init_db_migrates_legacy_sqlite_schema(monkeypatch, tmp_path):
+    db_path = tmp_path / "legacy.db"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        """
+        CREATE TABLE scans (
+            id VARCHAR PRIMARY KEY NOT NULL,
+            domain VARCHAR NOT NULL,
+            normalized_url VARCHAR NOT NULL,
+            status VARCHAR NOT NULL
+        );
+        CREATE TABLE scan_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            scan_id VARCHAR NOT NULL,
+            category VARCHAR NOT NULL,
+            score FLOAT NOT NULL
+        );
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    monkeypatch.setattr(database, "engine", engine, raising=True)
+    monkeypatch.setattr(database, "async_session_factory", async_session, raising=True)
+    monkeypatch.setattr(database, "_init_lock", asyncio.Lock(), raising=True)
+    monkeypatch.setattr(database, "_initialized", False, raising=True)
+
+    await database.init_db()
+
+    async with engine.begin() as db_conn:
+        scan_columns = await db_conn.execute(text("PRAGMA table_info('scans')"))
+        check_columns = await db_conn.execute(text("PRAGMA table_info('scan_checks')"))
+        index_rows = await db_conn.execute(text("PRAGMA index_list('scan_checks')"))
+        scan_column_names = {str(row[1]) for row in scan_columns.fetchall()}
+        check_column_names = {str(row[1]) for row in check_columns.fetchall()}
+        index_names = {str(row[1]) for row in index_rows.fetchall()}
+
+        await db_conn.execute(
+            text(
+                """
+                INSERT INTO scans (
+                    id, domain, normalized_url, source, status, scanner_version, started_at, created_at
+                ) VALUES (
+                    'legacy-scan', 'example.com', 'https://example.com', 'web', 'running', '1.0.0', 'now', 'now'
+                )
+                """
+            )
+        )
+        await db_conn.execute(
+            text(
+                """
+                UPDATE scans
+                SET overall_score = 0.5, grade = 'C', duration_ms = 100, result_json = '{}', completed_at = 'now'
+                WHERE id = 'legacy-scan'
+                """
+            )
+        )
+
+    assert "source" in scan_column_names
+    assert "scanner_version" in scan_column_names
+    assert "overall_score" in scan_column_names
+    assert "grade" in scan_column_names
+    assert "started_at" in scan_column_names
+    assert "completed_at" in scan_column_names
+    assert "created_at" in scan_column_names
+    assert "severity" in check_column_names
+    assert "details_json" in check_column_names
+    assert "signals_json" in check_column_names
+    assert "uq_scan_checks_scan_category" in index_names
+
+    await engine.dispose()

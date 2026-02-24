@@ -3,26 +3,32 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ecom LLM Readiness Checker</title>
+  <meta name="description" content="Check how ready your ecommerce site is for AI agents, crawlers, and bots. Free scan with actionable recommendations." />
+  <meta property="og:title" content="botfriendly.shop — Is your shop ready for AI?" />
+  <meta property="og:description" content="Scan your ecommerce site and get an AI-readiness score. Find gaps in structured data, robots.txt, sitemaps, and more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://botfriendly.shop" />
+  <title>botfriendly — Is your shop ready for AI?</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main class="container">
     <nav class="top-nav card">
-      <a href="/">Home</a>
+      <a href="/" class="is-active">Home</a>
       <a href="/stats">Stats</a>
       <a href="/bots">Bots</a>
     </nav>
 
     <section class="card hero">
-      <h1>Ecom LLM Readiness Checker</h1>
-      <p class="subheadline">How ready is your ecommerce site for AI agents?</p>
+      <h1><span class="brand">botfriendly<span class="brand-dot">.</span>shop</span></h1>
+      <p class="subheadline">Check how ready your ecommerce site is for AI agents, crawlers, and bots. Get a score, find gaps, fix them.</p>
 
       <form class="scan-form" action="/scan" method="post">
-        <label for="url">Site URL</label>
+        <label for="url">Enter a URL</label>
         <div class="form-row">
           <input id="url" name="url" type="text" placeholder="e.g. example.com" required value="{{ url or '' }}" />
-          <button type="submit">Start Scan</button>
+          <button type="submit">Scan</button>
         </div>
         {% if error %}
           <p class="error">{{ error }}</p>
@@ -33,10 +39,10 @@
     <section class="card">
       <h2>What we check</h2>
       <ul class="checks-list">
-        <li>Robots.txt AI bot access</li>
-        <li>AI discovery files (llms.txt and well-known endpoints)</li>
+        <li>Robots.txt AI bot access policies</li>
+        <li>AI discovery files (llms.txt, well-known endpoints)</li>
         <li>Sitemap availability and freshness</li>
-        <li>Structured data coverage (schema.org and OpenGraph)</li>
+        <li>Structured data coverage (Schema.org, OpenGraph)</li>
         <li>SEO metadata basics</li>
         <li>Product feed availability</li>
         <li>API surface discoverability</li>
@@ -45,6 +51,6 @@
     </section>
   </main>
 
-  <footer class="site-footer">Built by Sebastian Bartmann</footer>
+  <footer class="site-footer">botfriendly.shop · built by Sebastian Bartmann</footer>
 </body>
 </html>
