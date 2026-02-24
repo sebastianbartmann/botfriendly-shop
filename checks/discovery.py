@@ -11,8 +11,6 @@ from core.models import CheckResult, Severity, Signal
 DISCOVERY_PATHS = [
     "/llms.txt",
     "/llms-full.txt",
-    "/.well-known/ai-plugin.json",
-    "/.well-known/agent.json",
     "/.well-known/mcp.json",
 ]
 

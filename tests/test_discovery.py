@@ -50,13 +50,11 @@ async def test_discovery_partial_found():
         DISCOVERY_PATHS[0].lstrip("/"): _artifact(DISCOVERY_PATHS[0], 200, "ok"),
         DISCOVERY_PATHS[1].lstrip("/"): _artifact(DISCOVERY_PATHS[1], 200, "ok"),
         DISCOVERY_PATHS[2].lstrip("/"): _artifact(DISCOVERY_PATHS[2], 404, ""),
-        DISCOVERY_PATHS[3].lstrip("/"): _artifact(DISCOVERY_PATHS[3], 404, ""),
-        DISCOVERY_PATHS[4].lstrip("/"): _artifact(DISCOVERY_PATHS[4], 404, ""),
     }
 
     result = await check.run("https://example.com", artifacts)
 
-    assert result.score == 0.4
+    assert result.score == pytest.approx(2 / 3)
     assert result.severity == Severity.PARTIAL
 
 

@@ -53,8 +53,6 @@ class Scanner:
             ("sitemap.xml", urljoin(url.rstrip("/") + "/", "sitemap.xml")),
             ("llms.txt", urljoin(url.rstrip("/") + "/", "llms.txt")),
             ("llms-full.txt", urljoin(url.rstrip("/") + "/", "llms-full.txt")),
-            (".well-known/ai-plugin.json", urljoin(url.rstrip("/") + "/", ".well-known/ai-plugin.json")),
-            (".well-known/agent.json", urljoin(url.rstrip("/") + "/", ".well-known/agent.json")),
             (".well-known/mcp.json", urljoin(url.rstrip("/") + "/", ".well-known/mcp.json")),
         ]
 

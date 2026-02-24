@@ -28,8 +28,6 @@ async def test_scanner_average_score_with_stub_checks(monkeypatch, fake_get_fact
                 f"{base}sitemap.xml": (404, ""),
                 f"{base}llms.txt": (404, ""),
                 f"{base}llms-full.txt": (404, ""),
-                f"{base}.well-known/ai-plugin.json": (404, ""),
-                f"{base}.well-known/agent.json": (404, ""),
                 f"{base}.well-known/mcp.json": (404, ""),
             }
         ),
@@ -57,8 +55,6 @@ async def test_scanner_handles_no_checks(monkeypatch, fake_get_factory):
                 f"{base}sitemap.xml": (404, ""),
                 f"{base}llms.txt": (404, ""),
                 f"{base}llms-full.txt": (404, ""),
-                f"{base}.well-known/ai-plugin.json": (404, ""),
-                f"{base}.well-known/agent.json": (404, ""),
                 f"{base}.well-known/mcp.json": (404, ""),
             }
         ),
@@ -82,8 +78,6 @@ async def test_scanner_http_pass_fetches_common_files(monkeypatch, fake_get_fact
         f"{base}sitemap.xml": (200, "<urlset></urlset>"),
         f"{base}llms.txt": (200, "ok"),
         f"{base}llms-full.txt": (404, ""),
-        f"{base}.well-known/ai-plugin.json": (404, ""),
-        f"{base}.well-known/agent.json": (404, ""),
         f"{base}.well-known/mcp.json": (404, ""),
     }
     monkeypatch.setattr(httpx.AsyncClient, "get", fake_get_factory(route_map), raising=True)
@@ -95,7 +89,7 @@ async def test_scanner_http_pass_fetches_common_files(monkeypatch, fake_get_fact
     assert "index" in seen
     assert "robots.txt" in seen
     assert "sitemap.xml" in seen
-    assert ".well-known/agent.json" in seen
+    assert ".well-known/mcp.json" in seen
 
 
 @pytest.mark.asyncio
@@ -111,8 +105,6 @@ async def test_scanner_http_pass_captures_content_type_and_final_url(monkeypatch
                 f"{base}sitemap.xml": (200, "<urlset></urlset>", "application/xml", f"{base}sitemap.xml"),
                 f"{base}llms.txt": (200, "ok", "text/plain", f"{base}llms.txt"),
                 f"{base}llms-full.txt": (200, "ok", "text/plain", f"{base}llms-full.txt"),
-                f"{base}.well-known/ai-plugin.json": (200, "{}", "application/json", f"{base}.well-known/ai-plugin.json"),
-                f"{base}.well-known/agent.json": (200, "{}", "application/json", f"{base}.well-known/agent.json"),
                 f"{base}.well-known/mcp.json": (200, "{}", "application/json", f"{base}.well-known/mcp.json"),
             }
         ),
@@ -124,8 +116,8 @@ async def test_scanner_http_pass_captures_content_type_and_final_url(monkeypatch
 
     assert artifacts["llms.txt"]["content_type"] == "text/plain"
     assert artifacts["llms.txt"]["final_url"] == "https://example.com/llms.txt"
-    assert artifacts[".well-known/agent.json"]["content_type"] == "application/json"
-    assert artifacts[".well-known/agent.json"]["final_url"] == "https://example.com/.well-known/agent.json"
+    assert artifacts[".well-known/mcp.json"]["content_type"] == "application/json"
+    assert artifacts[".well-known/mcp.json"]["final_url"] == "https://example.com/.well-known/mcp.json"
 
 
 @pytest.mark.asyncio
@@ -134,7 +126,7 @@ async def test_scanner_passes_url_to_checks(monkeypatch, fake_get_factory):
     monkeypatch.setattr(
         httpx.AsyncClient,
         "get",
-        fake_get_factory({f"{base}{path}": (404, "") for path in ["", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt", ".well-known/ai-plugin.json", ".well-known/agent.json", ".well-known/mcp.json"]}),
+        fake_get_factory({f"{base}{path}": (404, "") for path in ["", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt", ".well-known/mcp.json"]}),
         raising=True,
     )
 
