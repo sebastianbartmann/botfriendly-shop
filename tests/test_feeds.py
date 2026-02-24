@@ -123,3 +123,23 @@ async def test_feeds_fetches_missing_artifacts(monkeypatch, fake_get_factory):
 
     assert result.score == 1.0
     assert result.details["found_paths"]["/feeds/products.atom"] is True
+
+
+@pytest.mark.asyncio
+async def test_feeds_html_content_type_is_rejected():
+    check = FeedsCheck()
+    artifacts = {
+        "feed.xml": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "feeds/products.atom": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "products.json": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "feed": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "index": {"status_code": 200, "text": "<html></html>"},
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert result.details["found_paths"]["/feed.xml"] is False
+    assert result.details["found_paths"]["/feeds/products.atom"] is False
+    assert result.details["found_paths"]["/products.json"] is False
+    assert result.details["found_paths"]["/feed"] is False

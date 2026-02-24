@@ -164,3 +164,30 @@ async def test_api_surface_fetches_missing_spec(monkeypatch, fake_get_factory):
     result = await check.run("https://example.com", {})
 
     assert result.score == 1.0
+
+
+@pytest.mark.asyncio
+async def test_api_surface_html_content_type_is_rejected_for_json_and_api_paths(monkeypatch):
+    check = APISurfaceCheck()
+
+    async def _fake_options(self, url, *args, **kwargs):
+        return type("Resp", (), {"status_code": 404, "text": ""})()
+
+    monkeypatch.setattr(httpx.AsyncClient, "options", _fake_options, raising=True)
+
+    artifacts = {
+        "openapi.json": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "swagger.json": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "api-docs": {"status_code": 404, "text": ""},
+        "api/v1": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "api/v2": {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"},
+        "index": {"status_code": 200, "text": "<html></html>"},
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert result.details["spec_found"]["/openapi.json"] is False
+    assert result.details["spec_found"]["/swagger.json"] is False
+    assert result.details["api_found"]["/api/v1"] is False
+    assert result.details["api_found"]["/api/v2"] is False

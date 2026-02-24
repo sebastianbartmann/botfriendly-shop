@@ -24,7 +24,9 @@ class FeedsCheck(BaseCheck):
             if response_data is None:
                 response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
 
-            exists = response_data.get("status_code") == 200
+            content_type = response_data.get("content_type")
+            is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
+            exists = response_data.get("status_code") == 200 and not is_html_response
             found_paths[path] = exists
             signals.append(
                 Signal(
@@ -102,5 +104,10 @@ class FeedsCheck(BaseCheck):
             try:
                 response = await client.get(url)
             except httpx.HTTPError:
-                return {"status_code": None, "text": ""}
-        return {"status_code": response.status_code, "text": response.text}
+                return {"status_code": None, "text": "", "content_type": None, "final_url": None}
+        return {
+            "status_code": response.status_code,
+            "text": response.text,
+            "content_type": response.headers.get("content-type"),
+            "final_url": str(response.url),
+        }

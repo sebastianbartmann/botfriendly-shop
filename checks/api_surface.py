@@ -26,7 +26,10 @@ class APISurfaceCheck(BaseCheck):
             response_data = artifacts.get(key)
             if response_data is None:
                 response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
-            exists = response_data.get("status_code") == 200
+            content_type = response_data.get("content_type")
+            is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
+            should_check_content_type = path in {"/openapi.json", "/swagger.json"}
+            exists = response_data.get("status_code") == 200 and not (should_check_content_type and is_html_response)
             spec_found[path] = exists
             signals.append(Signal(name=f"spec:{path}", value=exists, severity=Severity.PASS if exists else Severity.FAIL))
 
@@ -35,7 +38,9 @@ class APISurfaceCheck(BaseCheck):
             response_data = artifacts.get(key)
             if response_data is None:
                 response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
-            exists = response_data.get("status_code") == 200
+            content_type = response_data.get("content_type")
+            is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
+            exists = response_data.get("status_code") == 200 and not is_html_response
             api_found[path] = exists
             signals.append(Signal(name=f"endpoint:{path}", value=exists, severity=Severity.PASS if exists else Severity.INCONCLUSIVE))
 
@@ -86,8 +91,13 @@ class APISurfaceCheck(BaseCheck):
             try:
                 response = await client.get(url)
             except httpx.HTTPError:
-                return {"status_code": None, "text": ""}
-        return {"status_code": response.status_code, "text": response.text}
+                return {"status_code": None, "text": "", "content_type": None, "final_url": None}
+        return {
+            "status_code": response.status_code,
+            "text": response.text,
+            "content_type": response.headers.get("content-type"),
+            "final_url": str(response.url),
+        }
 
     async def _fetch_options(self, url: str) -> dict:
         async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
