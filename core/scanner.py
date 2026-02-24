@@ -15,6 +15,10 @@ from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
 from core.models import ScanResult
 from core.scoring import calculate_overall_score, get_grade
+from core.url_validator import validate_url
+
+MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+HTTP_TIMEOUT = httpx.Timeout(timeout=30.0, connect=10.0, read=15.0)
 
 
 class Scanner:
@@ -31,6 +35,10 @@ class Scanner:
         ]
 
     async def scan(self, url: str) -> ScanResult:
+        is_valid, error_message = validate_url(url)
+        if not is_valid:
+            raise ValueError(error_message or "Invalid URL")
+
         artifacts = await self._http_pass(url)
         results = []
         for check in self.checks:
@@ -47,6 +55,10 @@ class Scanner:
         )
 
     async def _http_pass(self, url: str) -> dict:
+        is_valid, error_message = validate_url(url)
+        if not is_valid:
+            raise ValueError(error_message or "Invalid URL")
+
         targets = [
             ("index", urljoin(url.rstrip("/") + "/", "")),
             ("robots.txt", urljoin(url.rstrip("/") + "/", "robots.txt")),
@@ -56,7 +68,7 @@ class Scanner:
             (".well-known/mcp.json", urljoin(url.rstrip("/") + "/", ".well-known/mcp.json")),
         ]
 
-        async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=HTTP_TIMEOUT) as client:
             tasks = [self._fetch(client, target_url) for _, target_url in targets]
             responses = await asyncio.gather(*tasks)
 
@@ -74,12 +86,18 @@ class Scanner:
     @staticmethod
     async def _fetch(client: httpx.AsyncClient, target_url: str) -> dict:
         try:
-            response = await client.get(target_url)
+            async with client.stream("GET", target_url) as response:
+                content = bytearray()
+                async for chunk in response.aiter_bytes():
+                    content.extend(chunk)
+                    if len(content) > MAX_RESPONSE_BYTES:
+                        break
+                text = bytes(content[:MAX_RESPONSE_BYTES]).decode(response.encoding or "utf-8", errors="replace")
         except httpx.HTTPError:
             return {"status_code": None, "text": "", "content_type": None, "final_url": None}
         return {
             "status_code": response.status_code,
-            "text": response.text,
+            "text": text,
             "content_type": response.headers.get("content-type"),
             "final_url": str(response.url),
         }

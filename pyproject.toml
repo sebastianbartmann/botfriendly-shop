@@ -13,10 +13,15 @@ dependencies = [
   "python-multipart",
   "playwright",
   "httpx",
+  "slowapi",
+  "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
   "pytest",
   "pytest-asyncio",
   "pytest-timeout",
-  "python-dotenv",
 ]
 
 [tool.pytest.ini_options]

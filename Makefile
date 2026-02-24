@@ -1,4 +1,4 @@
-.PHONY: test check build run stop logs web
+.PHONY: test check build run stop logs web batch
 
 URL ?= https://example.com
 PYTHON ?= .venv/bin/python
@@ -23,3 +23,6 @@ test:
 
 check:
 	$(PYTHON) cli.py $(URL)
+
+batch:
+	$(PYTHON) scripts/batch_scan.py

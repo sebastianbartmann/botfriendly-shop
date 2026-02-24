@@ -6,8 +6,19 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8084:8084"
+    environment:
+      ECOM_LOG_FORMAT: json
+      ECOM_CHECKER_DB_PATH: /app/data/ecom_checker.db
     volumes:
       - ecom_checker_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8084/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 512m
+    cpus: 1.0
     restart: unless-stopped
 
 volumes:

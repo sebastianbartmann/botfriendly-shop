@@ -77,7 +77,7 @@ async def test_scan_rejects_empty_url():
         response = await client.post("/scan", data={"url": ""}, follow_redirects=False)
 
     assert response.status_code == 400
-    assert "Please enter a valid URL" in response.text
+    assert "URL is required" in response.text
 
 
 @pytest.mark.asyncio

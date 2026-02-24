@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
@@ -11,6 +12,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sse_starlette.sse import EventSourceResponse
@@ -28,9 +31,11 @@ from core.db_models import ScanCheckRecord, ScanRecord
 from core.models import CheckResult
 from core.scanner import Scanner
 from core.scoring import calculate_overall_score, get_grade
+from core.url_validator import validate_url
 from core.version import SCANNER_VERSION
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 CHECKS = [
     RobotsCheck(),
@@ -58,9 +63,14 @@ scans: dict[str, dict[str, Any]] = {}
 scan_tasks: dict[str, asyncio.Task[None]] = {}
 
 
-def _is_valid_url(url: str) -> bool:
-    candidate = (url or "").strip()
-    return candidate.startswith("http://") or candidate.startswith("https://")
+def _client_ip_key_func(request: Request) -> str:
+    forwarded_for = (request.headers.get("x-forwarded-for") or "").strip()
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_client_ip_key_func)
 
 
 def _normalize_url(url: str) -> str:
@@ -355,11 +365,26 @@ async def _run_web_scan(scan_id: str, url: str) -> None:
         scans[scan_id]["overall"] = overall_score
         scans[scan_id]["grade"] = grade
         await _complete_scan(scan_id, overall_score, grade, duration_ms, scan_result_payload)
+        logger.info(
+            "scan_completed scan_id=%s source=web url=%s score=%.4f grade=%s duration_ms=%d",
+            scan_id,
+            url,
+            overall_score,
+            grade,
+            duration_ms,
+        )
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started) * 1000)
         scans[scan_id]["status"] = "error"
         scans[scan_id]["error"] = str(exc)
         await _fail_scan(scan_id, str(exc), duration_ms)
+        logger.exception(
+            "scan_error scan_id=%s source=web url=%s duration_ms=%d error=%s",
+            scan_id,
+            url,
+            duration_ms,
+            str(exc),
+        )
     finally:
         scan_tasks.pop(scan_id, None)
 
@@ -670,6 +695,7 @@ async def stats_page(request: Request):
 
 
 @router.post("/scan")
+@limiter.limit("10/minute")
 async def start_scan(
     request: Request,
     force: bool = Query(False),
@@ -679,13 +705,14 @@ async def start_scan(
     form = await request.form()
     raw_url = _normalize_url(str(form.get("url", "")))
 
-    if not _is_valid_url(raw_url):
+    is_valid, error_message = validate_url(raw_url)
+    if not is_valid:
         templates = request.app.state.templates
         return templates.TemplateResponse(
             "index.html",
             {
                 "request": request,
-                "error": "Please enter a valid URL that starts with http:// or https://",
+                "error": error_message or "Please enter a valid URL that starts with http:// or https://",
                 "url": raw_url,
             },
             status_code=400,
@@ -708,6 +735,7 @@ async def start_scan(
         "error": None,
     }
     await _insert_scan(scan_id, raw_url, source="web", status="running")
+    logger.info("scan_started scan_id=%s source=web url=%s", scan_id, raw_url)
     return RedirectResponse(url=f"/results/{scan_id}", status_code=303)
 
 
@@ -738,6 +766,7 @@ async def results_page(request: Request, scan_id: str):
 
 
 @router.get("/api/stream/{scan_id}")
+@limiter.limit("30/minute")
 async def stream_scan(request: Request, scan_id: str):
     await init_db()
     scan = await _load_scan_state(scan_id)
@@ -772,17 +801,20 @@ async def stream_scan(request: Request, scan_id: str):
 
 
 @router.get("/api/v1/scan")
+@limiter.limit("10/minute")
 async def scan_json(
+    request: Request,
     url: str = Query(..., description="Site URL to scan"),
     force: bool = Query(False),
     rescan: bool = Query(False),
 ):
     await init_db()
     normalized_url = url.strip()
-    if not _is_valid_url(normalized_url):
+    is_valid, error_message = validate_url(normalized_url)
+    if not is_valid:
         return JSONResponse(
             status_code=400,
-            content={"error": "Invalid URL. It must start with http:// or https://"},
+            content={"error": error_message or "Invalid URL"},
         )
 
     bypass_cache = force or rescan
@@ -798,6 +830,7 @@ async def scan_json(
 
     scan_id = str(uuid4())
     await _insert_scan(scan_id, normalized_url, source="api", status="running")
+    logger.info("scan_started scan_id=%s source=api url=%s", scan_id, normalized_url)
 
     started = time.perf_counter()
     check_results: list[CheckResult] = []
@@ -822,9 +855,24 @@ async def scan_json(
             "check_results": [_serialize_check_result(item) for item in check_results],
         }
         await _complete_scan(scan_id, overall_score, grade, duration_ms, payload)
+        logger.info(
+            "scan_completed scan_id=%s source=api url=%s score=%.4f grade=%s duration_ms=%d",
+            scan_id,
+            normalized_url,
+            overall_score,
+            grade,
+            duration_ms,
+        )
 
         return JSONResponse(content=payload)
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started) * 1000)
         await _fail_scan(scan_id, str(exc), duration_ms)
+        logger.exception(
+            "scan_error scan_id=%s source=api url=%s duration_ms=%d error=%s",
+            scan_id,
+            normalized_url,
+            duration_ms,
+            str(exc),
+        )
         raise

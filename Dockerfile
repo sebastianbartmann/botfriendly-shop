@@ -29,10 +29,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd --system app && useradd --system --gid app --create-home app
+
 COPY . /app
 
 RUN pip install --no-cache-dir .
+RUN mkdir -p /app/data && chown -R app:app /app
 
 EXPOSE 8084
+
+USER app
 
 CMD ["uvicorn", "web_app.main:app", "--host", "0.0.0.0", "--port", "8084"]
