@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -29,7 +29,14 @@ class APISurfaceCheck(BaseCheck):
             content_type = response_data.get("content_type")
             is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
             should_check_content_type = path in {"/openapi.json", "/swagger.json"}
-            exists = response_data.get("status_code") == 200 and not (should_check_content_type and is_html_response)
+            is_docs_redirect_valid = True
+            if path == "/api-docs" and response_data.get("status_code") == 200:
+                is_docs_redirect_valid = self._path_contains_any(response_data.get("final_url"), {"api-docs", "api", "docs"})
+            exists = (
+                response_data.get("status_code") == 200
+                and not (should_check_content_type and is_html_response)
+                and is_docs_redirect_valid
+            )
             spec_found[path] = exists
             signals.append(Signal(name=f"spec:{path}", value=exists, severity=Severity.PASS if exists else Severity.FAIL))
 
@@ -45,7 +52,9 @@ class APISurfaceCheck(BaseCheck):
             signals.append(Signal(name=f"endpoint:{path}", value=exists, severity=Severity.PASS if exists else Severity.INCONCLUSIVE))
 
         graphql = await self._fetch_options(urljoin(url.rstrip("/") + "/", GRAPHQL_PATH.lstrip("/")))
-        graphql_enabled = graphql.get("status_code") in {200, 204, 400, 405}
+        graphql_enabled = graphql.get("status_code") in {200, 204, 400, 405} and self._path_contains_any(
+            graphql.get("final_url"), {"graphql"}
+        )
         signals.append(Signal(name="endpoint:/graphql_options", value=graphql_enabled, severity=Severity.PASS if graphql_enabled else Severity.INCONCLUSIVE))
 
         index = artifacts.get("index")
@@ -104,5 +113,13 @@ class APISurfaceCheck(BaseCheck):
             try:
                 response = await client.options(url)
             except httpx.HTTPError:
-                return {"status_code": None, "text": ""}
-        return {"status_code": response.status_code, "text": response.text}
+                return {"status_code": None, "text": "", "final_url": None}
+        response_url = getattr(response, "url", url)
+        return {"status_code": response.status_code, "text": response.text, "final_url": str(response_url)}
+
+    @staticmethod
+    def _path_contains_any(final_url: str | None, tokens: set[str]) -> bool:
+        if not final_url:
+            return False
+        path = urlparse(final_url).path.lower()
+        return any(token in path for token in tokens)
