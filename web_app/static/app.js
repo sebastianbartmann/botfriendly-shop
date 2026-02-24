@@ -18,6 +18,15 @@
     inconclusive: "#6b7280",
   };
 
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
   function clampScore(score) {
     if (typeof score !== "number" || Number.isNaN(score)) return 0;
     if (score < 0) return 0;
@@ -31,9 +40,9 @@
 
   function makeList(items, emptyText) {
     if (!items || !items.length) {
-      return `<li>${emptyText}</li>`;
+      return `<li>${escapeHtml(emptyText)}</li>`;
     }
-    return items.map((item) => `<li>${item}</li>`).join("");
+    return items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   }
 
   function renderRobotsSignals(payload) {
@@ -46,7 +55,7 @@
     order.forEach((tierKey) => {
       const stats = tiers[tierKey];
       if (!stats) return;
-      const label = stats.label || tierKey;
+      const label = escapeHtml(stats.label || tierKey);
       const allowed = Number(stats.allowed || 0);
       const blocked = Number(stats.blocked || 0);
       const notMentioned = Number(stats.not_mentioned || 0);
@@ -64,7 +73,7 @@
     }
 
     const blockedLine = blockedOperators.length
-      ? `<span class="signal-fail">${blockedOperators.join(", ")}</span>`
+      ? `<span class="signal-fail">${blockedOperators.map((operator) => escapeHtml(operator)).join(", ")}</span>`
       : `<span class="signal-pass">None</span>`;
     tierRows.push(`<li><span class="tier-label">Blocked operators:</span> ${blockedLine}</li>`);
     return tierRows.join("");
@@ -74,12 +83,13 @@
     const score = clampScore(payload.score);
     const scorePercent = Math.round(score * 100);
     const severity = (payload.severity || "inconclusive").toLowerCase();
+    const severityClass = severityColor[severity] ? severity : "inconclusive";
 
     const signals =
       payload.category === "robots"
         ? renderRobotsSignals(payload)
         : makeList(
-            (payload.signals || []).slice(0, 3).map((sig) => {
+            (payload.signals || []).map((sig) => {
               const value = typeof sig.value === "object" ? JSON.stringify(sig.value) : String(sig.value);
               return `${sig.name}: ${value}`;
             }),
@@ -99,11 +109,11 @@
     card.className = "check-card";
     card.innerHTML = `
       <div class="check-top">
-        <h3 class="check-title">${categoryLabel(payload.category, payload.category_label)}</h3>
-        <span class="badge ${severity}">${severity}</span>
+        <h3 class="check-title">${escapeHtml(categoryLabel(payload.category, payload.category_label))}</h3>
+        <span class="badge ${severityClass}">${escapeHtml(severity)}</span>
       </div>
       <div class="tiny-track">
-        <div class="tiny-fill" style="background: ${severityColor[severity] || severityColor.inconclusive}; width: 0%;"></div>
+        <div class="tiny-fill" style="background: ${severityColor[severityClass]}; width: 0%;"></div>
       </div>
       <ul class="signal-list">${signals}</ul>
       ${robotsCta}
