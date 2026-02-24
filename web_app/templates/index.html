@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ecom LLM Readiness Checker</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="card hero">
+      <h1>Ecom LLM Readiness Checker</h1>
+      <p class="subheadline">How ready is your ecommerce site for AI agents?</p>
+
+      <form class="scan-form" action="/scan" method="post">
+        <label for="url">Site URL</label>
+        <div class="form-row">
+          <input id="url" name="url" type="url" placeholder="https://your-store.com" required value="{{ url or '' }}" />
+          <button type="submit">Start Scan</button>
+        </div>
+        {% if error %}
+          <p class="error">{{ error }}</p>
+        {% endif %}
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>What we check</h2>
+      <ul class="checks-list">
+        <li>Robots.txt AI bot access</li>
+        <li>AI discovery files (llms.txt and well-known endpoints)</li>
+        <li>Sitemap availability and freshness</li>
+        <li>Structured data coverage (schema.org and OpenGraph)</li>
+        <li>SEO metadata basics</li>
+        <li>Product feed availability</li>
+        <li>API surface discoverability</li>
+        <li>Product parseability for agents</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">Built by Sebastian Bartmann</footer>
+</body>
+</html>

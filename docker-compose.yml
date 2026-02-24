@@ -1,0 +1,9 @@
+services:
+  ecom-llm-checker:
+    container_name: ecom-llm-checker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    restart: unless-stopped

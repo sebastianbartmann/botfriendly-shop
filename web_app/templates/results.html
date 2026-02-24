@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scan Results - Ecom LLM Readiness Checker</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container" data-scan-id="{{ scan_id }}" data-check-count="{{ check_count }}">
+    <header class="results-header card">
+      <h1>Scanning: <span class="url">{{ url }}</span></h1>
+      <a class="secondary-link" href="/">Scan another site</a>
+    </header>
+
+    <section class="card overall-card">
+      <div>
+        <p class="muted">Overall Score</p>
+        <div class="overall-row">
+          <div id="grade" class="grade pending">...</div>
+          <div class="score-wrap">
+            <div class="score-track">
+              <div id="overall-score-bar" class="score-fill" style="width: 0%;"></div>
+            </div>
+            <p id="overall-score-text" class="score-text">Running checks...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div id="loading-state" class="loading">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span>Running checks in real time...</span>
+      </div>
+      <div id="check-grid" class="check-grid"></div>
+      <div id="error-box" class="error hidden"></div>
+    </section>
+  </main>
+
+  <script>
+    window.SCAN_CONTEXT = {
+      scanId: "{{ scan_id }}",
+      checkCount: Number("{{ check_count }}"),
+      labels: {
+        robots: "Robots.txt AI Bot Access",
+        discovery: "AI Discovery Files",
+        sitemap: "Sitemap Quality",
+        structured_data: "Structured Data",
+        seo_meta: "SEO Metadata",
+        feeds: "Product Feed Availability",
+        api_surface: "API Surface",
+        product_parseability: "Product Parseability"
+      }
+    };
+  </script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
