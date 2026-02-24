@@ -43,9 +43,10 @@ class SeoMetaCheck(BaseCheck):
 
         item_scores = [title_score, description_score, canonical_score, language_score, viewport_score, h1_score]
         score = sum(item_scores) / len(item_scores)
-        if score >= 0.8:
+        epsilon = 1e-9
+        if score >= 0.8 - epsilon:
             severity = Severity.PASS
-        elif score >= 0.4:
+        elif score >= 0.4 - epsilon:
             severity = Severity.PARTIAL
         else:
             severity = Severity.FAIL

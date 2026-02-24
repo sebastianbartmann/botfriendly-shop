@@ -24,6 +24,24 @@ async def test_feeds_structured_products_json_scores_full():
 
 
 @pytest.mark.asyncio
+async def test_feeds_products_json_application_json_scores_full():
+    check = FeedsCheck()
+    artifacts = {
+        "feed.xml": {"status_code": 404, "text": ""},
+        "feeds/products.atom": {"status_code": 404, "text": ""},
+        "products.json": {"status_code": 200, "text": "[]", "content_type": "application/json"},
+        "feed": {"status_code": 404, "text": ""},
+        "index": {"status_code": 200, "text": ""},
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 1.0
+    assert result.severity == Severity.PASS
+    assert result.details["found_paths"]["/products.json"] is True
+
+
+@pytest.mark.asyncio
 async def test_feeds_generic_rss_only_scores_half():
     check = FeedsCheck()
     artifacts = {
@@ -143,3 +161,30 @@ async def test_feeds_html_content_type_is_rejected():
     assert result.details["found_paths"]["/feeds/products.atom"] is False
     assert result.details["found_paths"]["/products.json"] is False
     assert result.details["found_paths"]["/feed"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "artifact_key,path",
+    [
+        ("feed.xml", "/feed.xml"),
+        ("feeds/products.atom", "/feeds/products.atom"),
+        ("products.json", "/products.json"),
+        ("feed", "/feed"),
+    ],
+)
+async def test_feeds_html_content_type_rejected_per_path(artifact_key, path):
+    check = FeedsCheck()
+    artifacts = {
+        "feed.xml": {"status_code": 404, "text": ""},
+        "feeds/products.atom": {"status_code": 404, "text": ""},
+        "products.json": {"status_code": 404, "text": ""},
+        "feed": {"status_code": 404, "text": ""},
+        "index": {"status_code": 200, "text": "<html></html>"},
+    }
+    artifacts[artifact_key] = {"status_code": 200, "text": "<html>login</html>", "content_type": "text/html; charset=utf-8"}
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert result.details["found_paths"][path] is False

@@ -77,6 +77,75 @@ async def test_structured_data_malformed_jsonld_with_no_og_fails():
 
 
 @pytest.mark.asyncio
+async def test_structured_data_offer_only_jsonld_scores_full():
+    check = StructuredDataCheck()
+    html = """
+    <html><head>
+      <script type='application/ld+json'>
+        {"@context":"https://schema.org","@type":"Offer","price":"19.99","availability":"https://schema.org/InStock"}
+      </script>
+    </head></html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.score == 1.0
+    assert result.severity == Severity.PASS
+    assert "Offer" in result.details["schema_types"]
+    assert any(s.name == "schema:Offer" for s in result.signals)
+
+
+@pytest.mark.asyncio
+async def test_structured_data_mixed_valid_and_malformed_jsonld_uses_valid_score():
+    check = StructuredDataCheck()
+    html = """
+    <html><head>
+      <script type='application/ld+json'>{"@type":"Product","name":"Widget"}</script>
+      <script type='application/ld+json'>{bad json</script>
+    </head></html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.score == 1.0
+    assert result.details["malformed_json_ld_blocks"] == 1
+    assert any(s.name == "json_ld_malformed_blocks" for s in result.signals)
+
+
+@pytest.mark.asyncio
+async def test_structured_data_non_200_fetched_index_scores_zero(monkeypatch, fake_get_factory):
+    check = StructuredDataCheck()
+    monkeypatch.setattr(
+        httpx.AsyncClient,
+        "get",
+        fake_get_factory({"https://example.com/": (500, "<html><head></head></html>")}),
+        raising=True,
+    )
+
+    result = await check.run("https://example.com", {})
+
+    assert result.score == 0.0
+    assert result.severity == Severity.FAIL
+
+
+@pytest.mark.asyncio
+async def test_structured_data_type_list_detects_product():
+    check = StructuredDataCheck()
+    html = """
+    <html><head>
+      <script type='application/ld+json'>
+        {"@context":"https://schema.org","@type":["Product","IndividualProduct"],"name":"Widget"}
+      </script>
+    </head></html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.score == 1.0
+    assert "Product" in result.details["schema_types"]
+
+
+@pytest.mark.asyncio
 async def test_structured_data_fetches_index_when_missing(monkeypatch, fake_get_factory):
     check = StructuredDataCheck()
     monkeypatch.setattr(

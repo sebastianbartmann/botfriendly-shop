@@ -63,8 +63,13 @@ def test_calculate_overall_score_empty_results_is_zero():
 
 def test_get_grade_boundaries():
     assert get_grade(0.9) == "A+"
+    assert get_grade(0.89) == "A"
     assert get_grade(0.8) == "A"
+    assert get_grade(0.79) == "B"
     assert get_grade(0.65) == "B"
+    assert get_grade(0.64) == "C"
     assert get_grade(0.5) == "C"
+    assert get_grade(0.49) == "D"
     assert get_grade(0.35) == "D"
-    assert get_grade(0.3499) == "F"
+    assert get_grade(0.34) == "F"
+    assert get_grade(0.0) == "F"

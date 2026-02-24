@@ -140,16 +140,25 @@ class RobotsCheck(BaseCheck):
                 for agent in current_agents:
                     sections.setdefault(agent, []).append(f"{key_lower}:{value}")
 
-        for bot in AI_BOTS:
-            directives = sections.get(bot.name)
+        def _state_from_directives(directives: list[str] | None) -> str | None:
             if not directives:
-                continue
+                return None
             disallow_all = any(d == "disallow:/" for d in directives)
             allow_any = any(d.startswith("allow:") for d in directives)
             if disallow_all and not allow_any:
-                states[bot.name] = "blocked"
-            else:
-                states[bot.name] = "allowed"
+                return "blocked"
+            return "allowed"
+
+        for bot in AI_BOTS:
+            state = _state_from_directives(sections.get(bot.name))
+            if state is not None:
+                states[bot.name] = state
+
+        wildcard_state = _state_from_directives(sections.get("*"))
+        if wildcard_state is not None:
+            for bot in AI_BOTS:
+                if states[bot.name] == "not_mentioned":
+                    states[bot.name] = wildcard_state
 
         return states
 

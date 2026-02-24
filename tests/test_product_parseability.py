@@ -80,6 +80,82 @@ async def test_product_parseability_price_mismatch_scores_partial():
 
 
 @pytest.mark.asyncio
+async def test_product_parseability_price_consistency_equal_prices():
+    check = ProductParseabilityCheck()
+
+    result = await check.run(
+        "https://example.com",
+        {"index": {"status_code": 200, "text": _rich_product_html(price="29.99", og_price="29.99")}},
+    )
+
+    assert result.details["price_consistent"] is True
+    assert next(s for s in result.signals if s.name == "price_consistency").severity == Severity.PASS
+    assert result.score == 1.0
+
+
+@pytest.mark.asyncio
+async def test_product_parseability_price_consistency_mismatch_prices():
+    check = ProductParseabilityCheck()
+
+    result = await check.run(
+        "https://example.com",
+        {"index": {"status_code": 200, "text": _rich_product_html(price="29.99", og_price="39.99")}},
+    )
+
+    assert result.details["price_consistent"] is False
+    assert next(s for s in result.signals if s.name == "price_consistency").severity == Severity.FAIL
+    assert result.score == 0.5
+
+
+@pytest.mark.asyncio
+async def test_product_parseability_complete_product_jsonld_with_meta_and_semantic_html_scores_full():
+    check = ProductParseabilityCheck()
+    html = """
+    <html>
+      <head>
+        <script type='application/ld+json'>
+          {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "Widget",
+            "offers": {
+              "@type": "Offer",
+              "price": "29.99",
+              "availability": "https://schema.org/InStock"
+            }
+          }
+        </script>
+        <meta property='og:title' content='Widget'>
+        <meta property='og:price:amount' content='29.99'>
+        <meta property='og:price:currency' content='USD'>
+      </head>
+      <body>
+        <h1>Widget</h1>
+        <span class='price'>$29.99</span>
+      </body>
+    </html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.score == 1.0
+    assert result.severity == Severity.PASS
+
+
+@pytest.mark.asyncio
+async def test_product_parseability_partial_semantic_only_scores_partial():
+    check = ProductParseabilityCheck()
+    html = "<html><body><h1>Widget</h1><div class='price'>$29.99</div></body></html>"
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.score == 0.5
+    assert result.severity == Severity.PARTIAL
+    assert result.details["schema_types"] == []
+    assert result.details["og_title"] == ""
+
+
+@pytest.mark.asyncio
 async def test_product_parseability_malformed_jsonld_but_meta_partial():
     check = ProductParseabilityCheck()
     html = """

@@ -3,11 +3,52 @@ from dataclasses import asdict
 from core.models import CheckResult, ScanResult, Severity, Signal
 
 
+def test_check_result_creation_with_all_fields():
+    signal = Signal(name="llms", value=True, severity=Severity.PASS, detail="found")
+    result = CheckResult(
+        category="discovery",
+        score=0.75,
+        severity=Severity.PARTIAL,
+        signals=[signal],
+        details={"llms.txt": 200},
+        recommendations=["Add llms-full.txt"],
+    )
+
+    assert result.category == "discovery"
+    assert result.score == 0.75
+    assert result.severity == Severity.PARTIAL
+    assert result.signals == [signal]
+    assert result.details == {"llms.txt": 200}
+    assert result.recommendations == ["Add llms-full.txt"]
+
+
 def test_signal_creation():
     signal = Signal(name="robots", value="allowed", severity=Severity.PASS)
     assert signal.name == "robots"
     assert signal.value == "allowed"
     assert signal.severity == Severity.PASS
+
+
+def test_scan_result_creation_with_metadata():
+    check = CheckResult(category="robots", score=1.0, severity=Severity.PASS)
+    result = ScanResult(
+        url="https://example.com",
+        overall_score=0.9,
+        check_results=[check],
+        metadata={"grade": "A+", "source": "test"},
+    )
+
+    assert result.url == "https://example.com"
+    assert result.overall_score == 0.9
+    assert result.check_results == [check]
+    assert result.metadata == {"grade": "A+", "source": "test"}
+
+
+def test_signal_creation_with_all_severity_levels():
+    levels = [Severity.PASS, Severity.PARTIAL, Severity.FAIL, Severity.INCONCLUSIVE]
+    signals = [Signal(name=level.value, value=True, severity=level, detail="x") for level in levels]
+
+    assert [signal.severity for signal in signals] == levels
 
 
 def test_check_result_defaults_are_isolated():
@@ -55,3 +96,4 @@ def test_severity_values():
     assert Severity.PARTIAL.value == "partial"
     assert Severity.FAIL.value == "fail"
     assert Severity.INCONCLUSIVE.value == "inconclusive"
+    assert [member.value for member in Severity] == ["pass", "partial", "fail", "inconclusive"]

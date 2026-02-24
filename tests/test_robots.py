@@ -102,6 +102,66 @@ async def test_robots_missing_file():
 
 
 @pytest.mark.asyncio
+async def test_robots_fetch_error_status_none_marks_all_not_mentioned():
+    check = RobotsCheck()
+    artifacts = {"robots.txt": {"status_code": None, "text": ""}}
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert result.severity == Severity.FAIL
+    bot_signals = [s for s in result.signals if not s.name.startswith("tier:") and not s.name.startswith("overall:")]
+    assert all(signal.value == "not_mentioned" for signal in bot_signals)
+
+
+@pytest.mark.asyncio
+async def test_robots_wildcard_disallow_applies_to_unmentioned_bots():
+    check = RobotsCheck()
+    artifacts = {"robots.txt": {"status_code": 200, "text": "User-agent: *\nDisallow: /"}}
+
+    result = await check.run("https://example.com", artifacts)
+
+    bot_signals = [s for s in result.signals if not s.name.startswith("tier:") and not s.name.startswith("overall:")]
+    assert all(signal.value == "blocked" for signal in bot_signals)
+
+
+@pytest.mark.asyncio
+async def test_robots_bot_specific_allow_overrides_wildcard_disallow():
+    check = RobotsCheck()
+    artifacts = {
+        "robots.txt": {
+            "status_code": 200,
+            "text": "\n".join([
+                "User-agent: *",
+                "Disallow: /",
+                "User-agent: Operator",
+                "Allow: /",
+            ]),
+        }
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    operator_signal = next(signal for signal in result.signals if signal.name == "Operator")
+    gptbot_signal = next(signal for signal in result.signals if signal.name == "GPTBot")
+    assert operator_signal.value == "allowed"
+    assert gptbot_signal.value == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_robots_tier_summary_severity_all_not_mentioned_is_inconclusive():
+    check = RobotsCheck()
+    artifacts = {"robots.txt": {"status_code": 200, "text": ""}}
+
+    result = await check.run("https://example.com", artifacts)
+
+    tier_signals = [s for s in result.signals if s.name.startswith("tier:")]
+    overall_signal = next(s for s in result.signals if s.name == "overall:robots")
+    assert all(signal.severity == Severity.INCONCLUSIVE for signal in tier_signals)
+    assert overall_signal.severity == Severity.INCONCLUSIVE
+
+
+@pytest.mark.asyncio
 async def test_robots_malformed_treated_as_not_mentioned():
     check = RobotsCheck()
     artifacts = {"robots.txt": {"status_code": 200, "text": "this is not robots syntax"}}
