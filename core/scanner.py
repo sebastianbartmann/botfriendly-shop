@@ -10,6 +10,7 @@ from checks.discovery import DISCOVERY_PATHS, DiscoveryCheck
 from checks.feeds import FeedsCheck
 from checks.product_parseability import ProductParseabilityCheck
 from checks.robots import RobotsCheck
+from checks.seo_meta import SeoMetaCheck
 from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
 from core.models import ScanResult
@@ -23,6 +24,7 @@ class Scanner:
             DiscoveryCheck(),
             SitemapCheck(),
             StructuredDataCheck(),
+            SeoMetaCheck(),
             FeedsCheck(),
             APISurfaceCheck(),
             ProductParseabilityCheck(),

@@ -11,6 +11,7 @@ CATEGORY_WEIGHTS = {
     "sitemap": 10,
     "feeds": 15,
     "api_surface": 10,
+    "seo_meta": 10,
 }
 
 
