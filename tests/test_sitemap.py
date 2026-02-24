@@ -17,6 +17,16 @@ def _sitemap(lastmod: str | None = None, include_url: bool = True) -> str:
     )
 
 
+def _sitemap_index(lastmod: str | None = None) -> str:
+    lastmod_tag = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"<sitemap><loc>https://example.com/sitemap-products.xml</loc>{lastmod_tag}</sitemap>"
+        "</sitemapindex>"
+    )
+
+
 @pytest.mark.asyncio
 async def test_sitemap_missing():
     check = SitemapCheck()
@@ -33,7 +43,12 @@ async def test_sitemap_valid_and_fresh():
     check = SitemapCheck()
     fresh = datetime.now(timezone.utc).isoformat()
     artifacts = {
-        "sitemap.xml": {"status_code": 200, "text": _sitemap(lastmod=fresh)},
+        "sitemap.xml": {
+            "status_code": 200,
+            "text": _sitemap(lastmod=fresh),
+            "content_type": "application/xml",
+            "final_url": "https://example.com/sitemap.xml",
+        },
         "robots.txt": {"status_code": 200, "text": "Sitemap: https://example.com/sitemap.xml"},
     }
 
@@ -84,3 +99,40 @@ async def test_sitemap_no_lastmod_partial():
 
     assert result.score == 0.5
     assert result.severity == Severity.PARTIAL
+
+
+@pytest.mark.asyncio
+async def test_sitemap_index_counts_as_entries():
+    check = SitemapCheck()
+    fresh = datetime.now(timezone.utc).isoformat()
+    artifacts = {
+        "sitemap.xml": {"status_code": 200, "text": _sitemap_index(lastmod=fresh)},
+        "robots.txt": {"status_code": 200, "text": ""},
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    has_urls = next(signal for signal in result.signals if signal.name == "has_urls")
+    assert has_urls.value is True
+    assert has_urls.detail == "sitemap index with 1 child sitemaps"
+    assert result.details["sitemap_count"] == 1
+    assert result.details["url_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_sitemap_html_content_type_treated_as_missing():
+    check = SitemapCheck()
+    artifacts = {
+        "sitemap.xml": {
+            "status_code": 200,
+            "text": "<html><body>App shell</body></html>",
+            "content_type": "text/html; charset=utf-8",
+            "final_url": "https://example.com/",
+        },
+        "robots.txt": {"status_code": 200, "text": ""},
+    }
+
+    result = await check.run("https://example.com", artifacts)
+
+    assert result.score == 0.0
+    assert result.severity == Severity.FAIL
