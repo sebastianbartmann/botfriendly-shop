@@ -13,7 +13,7 @@ from checks.api_surface import APISurfaceCheck
 from checks.discovery import DiscoveryCheck
 from checks.feeds import FeedsCheck
 from checks.product_parseability import ProductParseabilityCheck
-from checks.robots import RobotsCheck
+from checks.robots import AI_BOTS, TIER_LABELS, RobotsCheck
 from checks.seo_meta import SeoMetaCheck
 from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
@@ -81,6 +81,33 @@ def _serialize_check_result(result: CheckResult) -> dict[str, Any]:
 async def home(request: Request):
     templates = request.app.state.templates
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@router.get("/bots")
+async def bots_page(request: Request):
+    templates = request.app.state.templates
+    tier_descriptions = {
+        "agent": "These bots browse stores and can complete shopping steps on behalf of users, so allowing them can directly impact assisted commerce conversion.",
+        "crawler": "These bots index and retrieve your content for AI search, answers, and training, which affects discoverability and product visibility.",
+    }
+    tier_order = ["agent", "crawler"]
+    sections = [
+        {
+            "key": tier,
+            "label": TIER_LABELS.get(tier, tier),
+            "description": tier_descriptions.get(tier, ""),
+            "bots": [bot for bot in AI_BOTS if bot.tier == tier],
+        }
+        for tier in tier_order
+    ]
+    return templates.TemplateResponse(
+        "bots.html",
+        {
+            "request": request,
+            "sections": sections,
+            "bot_count": len(AI_BOTS),
+        },
+    )
 
 
 @router.post("/scan")

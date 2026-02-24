@@ -282,6 +282,58 @@ button:hover { filter: brightness(1.08); }
 
 .hidden { display: none; }
 
+.subtle-link {
+  display: inline-block;
+  margin-top: .55rem;
+  color: #9fb5ff;
+  text-decoration: none;
+  font-size: .9rem;
+}
+
+.subtle-link:hover {
+  text-decoration: underline;
+}
+
+.bots-intro {
+  margin-top: .6rem;
+  margin-bottom: 0;
+}
+
+.bots-tier-copy {
+  margin-bottom: .7rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.bots-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .93rem;
+}
+
+.bots-table th,
+.bots-table td {
+  padding: .62rem .55rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.bots-table thead th {
+  color: #dbe3f5;
+  font-weight: 700;
+}
+
+.bots-table tbody td {
+  color: #d1d5db;
+}
+
+.bots-table tbody tr:hover {
+  background: rgba(59, 130, 246, .06);
+}
+
 @media (max-width: 700px) {
   .container { margin-top: 1rem; }
   .form-row { flex-direction: column; }

@@ -86,6 +86,15 @@
             "No signal details provided"
           );
 
+    const robotsTotal =
+      payload.details && payload.details.overall && Number(payload.details.overall.total)
+        ? Number(payload.details.overall.total)
+        : 23;
+    const robotsCta =
+      payload.category === "robots"
+        ? `<a class="subtle-link" href="/bots">View all ${robotsTotal} bots we check &rarr;</a>`
+        : "";
+
     const card = document.createElement("article");
     card.className = "check-card";
     card.innerHTML = `
@@ -97,6 +106,7 @@
         <div class="tiny-fill" style="background: ${severityColor[severity] || severityColor.inconclusive}; width: 0%;"></div>
       </div>
       <ul class="signal-list">${signals}</ul>
+      ${robotsCta}
       <ul class="reco-list">${makeList(payload.recommendations || [], "No recommendations")}</ul>
     `;
     checkGrid.appendChild(card);

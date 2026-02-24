@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Bots We Check For</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="results-header card">
+      <div>
+        <h1>AI Bots We Check For</h1>
+        <p class="subheadline bots-intro">
+          We track two tiers of AI bots because they influence ecommerce performance in different ways:
+          shopping agents can directly drive transactions, while crawlers and search bots shape how your catalog appears in AI discovery.
+        </p>
+      </div>
+      <a class="secondary-link" href="/">Back to home</a>
+    </header>
+
+    {% for section in sections %}
+      <section class="card">
+        <h2>{{ section.label }}</h2>
+        <p class="muted bots-tier-copy">{{ section.description }}</p>
+        <div class="table-wrap">
+          <table class="bots-table">
+            <thead>
+              <tr>
+                <th>Bot Name</th>
+                <th>Operator</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bot in section.bots %}
+                <tr>
+                  <td>{{ bot.name }}</td>
+                  <td>{{ bot.operator }}</td>
+                  <td>{{ bot.description }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endfor %}
+  </main>
+
+  <footer class="site-footer">Tracking {{ bot_count }} AI bots across both tiers</footer>
+</body>
+</html>

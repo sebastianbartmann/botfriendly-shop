@@ -49,3 +49,15 @@ async def test_scan_strips_whitespace_before_normalizing():
     assert response.status_code == 303
     scan_id = _scan_id_from_location(response.headers["location"])
     assert scans[scan_id]["url"] == "https://vorwerk.de"
+
+
+@pytest.mark.asyncio
+async def test_bots_page_renders():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/bots")
+
+    assert response.status_code == 200
+    assert "AI Bots We Check For" in response.text
+    assert "AI Shopping Agents" in response.text
+    assert "AI Crawlers &amp; Search" in response.text

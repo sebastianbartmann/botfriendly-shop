@@ -14,6 +14,7 @@ class AIBot:
     name: str
     operator: str
     tier: str  # agent | crawler
+    description: str
 
 
 TIER_LABELS = {
@@ -22,29 +23,29 @@ TIER_LABELS = {
 }
 
 AI_BOTS: list[AIBot] = [
-    AIBot("Operator", "OpenAI", "agent"),
-    AIBot("ChatGPT Agent", "OpenAI", "agent"),
-    AIBot("AmazonBuyForMe", "Amazon", "agent"),
-    AIBot("NovaAct", "Amazon", "agent"),
-    AIBot("GoogleAgent-Mariner", "Google", "agent"),
-    AIBot("GPTBot", "OpenAI", "crawler"),
-    AIBot("OAI-SearchBot", "OpenAI", "crawler"),
-    AIBot("ChatGPT-User", "OpenAI", "crawler"),
-    AIBot("ClaudeBot", "Anthropic", "crawler"),
-    AIBot("Claude-User", "Anthropic", "crawler"),
-    AIBot("Claude-SearchBot", "Anthropic", "crawler"),
-    AIBot("Google-Extended", "Google", "crawler"),
-    AIBot("Gemini-Deep-Research", "Google", "crawler"),
-    AIBot("PerplexityBot", "Perplexity", "crawler"),
-    AIBot("Perplexity-User", "Perplexity", "crawler"),
-    AIBot("Amazonbot", "Amazon", "crawler"),
-    AIBot("Meta-ExternalAgent", "Meta", "crawler"),
-    AIBot("meta-externalfetcher", "Meta", "crawler"),
-    AIBot("Applebot-Extended", "Apple", "crawler"),
-    AIBot("FacebookBot", "Meta", "crawler"),
-    AIBot("DeepSeekBot", "DeepSeek", "crawler"),
-    AIBot("Bytespider", "ByteDance", "crawler"),
-    AIBot("CCBot", "Common Crawl", "crawler"),
+    AIBot("Operator", "OpenAI", "agent", "Autonomous shopping agent by OpenAI"),
+    AIBot("ChatGPT Agent", "OpenAI", "agent", "Browses websites on behalf of ChatGPT users"),
+    AIBot("AmazonBuyForMe", "Amazon", "agent", "Purchases products on behalf of Amazon customers"),
+    AIBot("NovaAct", "Amazon", "agent", "Amazon's browser automation agent"),
+    AIBot("GoogleAgent-Mariner", "Google", "agent", "Google's web browsing AI agent"),
+    AIBot("GPTBot", "OpenAI", "crawler", "Crawls sites to train OpenAI models"),
+    AIBot("OAI-SearchBot", "OpenAI", "crawler", "Indexes content for SearchGPT results"),
+    AIBot("ChatGPT-User", "OpenAI", "crawler", "Fetches pages when ChatGPT users ask questions"),
+    AIBot("ClaudeBot", "Anthropic", "crawler", "Crawls sites to train Anthropic's models"),
+    AIBot("Claude-User", "Anthropic", "crawler", "Fetches pages when Claude users ask questions"),
+    AIBot("Claude-SearchBot", "Anthropic", "crawler", "Indexes content for Claude search results"),
+    AIBot("Google-Extended", "Google", "crawler", "Crawls sites to train Gemini and Vertex AI"),
+    AIBot("Gemini-Deep-Research", "Google", "crawler", "Fetches pages for Gemini's deep research feature"),
+    AIBot("PerplexityBot", "Perplexity", "crawler", "Indexes content for Perplexity search"),
+    AIBot("Perplexity-User", "Perplexity", "crawler", "Fetches pages when Perplexity users ask questions"),
+    AIBot("Amazonbot", "Amazon", "crawler", "Crawls sites for Alexa answers"),
+    AIBot("Meta-ExternalAgent", "Meta", "crawler", "Crawls sites to train Meta AI models"),
+    AIBot("meta-externalfetcher", "Meta", "crawler", "Fetches pages for Meta AI responses"),
+    AIBot("Applebot-Extended", "Apple", "crawler", "Crawls sites to train Apple Intelligence"),
+    AIBot("FacebookBot", "Meta", "crawler", "Crawls sites for Meta's language models"),
+    AIBot("DeepSeekBot", "DeepSeek", "crawler", "Crawls sites to train DeepSeek models"),
+    AIBot("Bytespider", "ByteDance", "crawler", "ByteDance crawler for LLM training"),
+    AIBot("CCBot", "Common Crawl", "crawler", "Common Crawl archive, used by many LLM projects"),
 ]
 
 
