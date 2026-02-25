@@ -9,6 +9,8 @@ services:
     environment:
       ECOM_LOG_FORMAT: json
       ECOM_CHECKER_DB_PATH: /app/data/ecom_checker.db
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: changeme
     volumes:
       - ecom_checker_data:/app/data
     healthcheck:

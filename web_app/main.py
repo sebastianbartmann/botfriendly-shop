@@ -12,6 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from core.database import init_db
 from core.logging_config import reset_request_id, set_request_id, setup_logging
+from web_app.admin_routes import admin_router
 from web_app.routes import limiter, router
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -75,3 +76,4 @@ async def security_headers_middleware(request: Request, call_next):
 
 
 app.include_router(router)
+app.include_router(admin_router)

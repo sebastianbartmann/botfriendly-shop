@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin - botfriendly.shop</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .admin-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: .8rem; }
+    .summary-card { margin-bottom: 0; }
+    .summary-value { font-size: 1.4rem; font-weight: 800; font-family: var(--font-brand); }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    .admin-table th, .admin-table td { padding: .55rem .5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .mono { font-family: var(--font-brand); }
+    #url-list {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: .75rem;
+      font-family: var(--font-brand);
+      font-size: .86rem;
+      line-height: 1.45;
+      resize: vertical;
+    }
+    .form-row { display: flex; align-items: center; gap: .9rem; margin-top: .75rem; flex-wrap: wrap; }
+    .inline-field { display: flex; align-items: center; gap: .4rem; color: var(--text-secondary); font-size: .9rem; }
+    .inline-field input[type=number] {
+      width: 80px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: .45rem .55rem;
+    }
+    .actions { display: flex; gap: .6rem; margin-top: .85rem; }
+    .btn-secondary { background: transparent; color: var(--text-secondary); border: 1.5px solid var(--border-strong); }
+    .btn-secondary:hover { background: var(--bg); color: var(--text); box-shadow: none; transform: none; }
+    .running-badge {
+      margin-left: .5rem;
+      border: 1px solid rgba(48, 98, 48, 0.2);
+      background: var(--pass-bg);
+      color: var(--pass);
+      border-radius: 999px;
+      padding: .18rem .52rem;
+      font-size: .76rem;
+      font-weight: 700;
+    }
+    #progress-section { margin-top: .9rem; }
+    .progress-track {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #e8e5dc;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--gb-mid), var(--accent));
+      transition: width .2s ease;
+    }
+    #progress-label { color: var(--muted); font-size: .88rem; margin-bottom: .4rem; }
+    #scan-log {
+      margin-top: .75rem;
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #101510;
+      color: #c7f1a4;
+      font-family: var(--font-brand);
+      font-size: .8rem;
+      line-height: 1.4;
+      padding: .7rem;
+      white-space: pre-wrap;
+    }
+    #batch-done-summary { margin-top: .75rem; color: var(--text-secondary); font-size: .9rem; }
+    .hidden { display: none; }
+    @media (max-width: 760px) {
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-batch-running='{{ batch_running|lower }}'>
+  <main class="container">
+    <nav class="top-nav card">
+      <a href="/">Home</a>
+      <a href="/stats">Stats</a>
+      <a href="/bots">Bots</a>
+      <a href="/admin" class="is-active">Admin</a>
+    </nav>
+
+    <header class="results-header card">
+      <div>
+        <h1>Admin</h1>
+      </div>
+    </header>
+
+    <section class="admin-grid">
+      <article class="card">
+        <h2>DB Stats</h2>
+        <div class="stats-grid">
+          <div class="card summary-card">
+            <p class="muted">Total Scans</p>
+            <p class="summary-value">{{ db_stats.total_scans }}</p>
+          </div>
+          <div class="card summary-card">
+            <p class="muted">Unique Domains</p>
+            <p class="summary-value">{{ db_stats.unique_domains }}</p>
+          </div>
+          <div class="card summary-card">
+            <p class="muted">Latest Scan</p>
+            <p class="summary-value mono">{{ db_stats.latest_scan or "N/A" }}</p>
+          </div>
+          <div class="card summary-card">
+            <p class="muted">Oldest Scan</p>
+            <p class="summary-value mono">{{ db_stats.oldest_scan or "N/A" }}</p>
+          </div>
+        </div>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if db_stats.versions %}
+              {% for row in db_stats.versions %}
+                <tr>
+                  <td class="mono">{{ row.scanner_version or "unknown" }}</td>
+                  <td>{{ row.cnt }}</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="2" class="muted">No scan data yet.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </article>
+
+      <article class="card">
+        <h2>Batch Scan{% if batch_running %}<span class="running-badge">Running</span>{% endif %}</h2>
+
+        {% if batch_summary %}
+          <div class="card">
+            <p class="muted">Last run summary</p>
+            <p class="mono">
+              total={{ batch_summary.total }}
+              success={{ batch_summary.success }}
+              failed={{ batch_summary.failed }}
+              skipped={{ batch_summary.skipped }}
+              duration={{ "%.2f"|format(batch_summary.duration_s) }}s
+            </p>
+          </div>
+        {% endif %}
+
+        <form id="batch-form">
+          <textarea id="url-list" name="urls" rows="20">{{ url_list }}</textarea>
+          <div class="form-row">
+            <label class="inline-field" for="concurrency">Concurrency
+              <input type="number" id="concurrency" name="concurrency" value="5" min="1" max="10" />
+            </label>
+            <label class="inline-field"><input type="checkbox" name="force" /> Force</label>
+            <label class="inline-field"><input type="checkbox" name="stale_only" /> Stale Only</label>
+          </div>
+          <div class="actions">
+            <button id="start-btn" type="submit" {% if batch_running %}disabled{% endif %}>Start Batch</button>
+            <button id="cancel-btn" type="button" class="btn-secondary">Cancel</button>
+          </div>
+        </form>
+
+        <section id="progress-section" class="hidden">
+          <div id="progress-label">0 / 0</div>
+          <div class="progress-track">
+            <div id="progress-bar"></div>
+          </div>
+          <div id="scan-log"></div>
+          <div id="batch-done-summary" class="hidden"></div>
+        </section>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">botfriendly.shop · built by Sebastian Bartmann</footer>
+
+  <script>
+    let eventSource = null;
+
+    function appendLog(line) {
+      const scanLog = document.getElementById("scan-log");
+      scanLog.textContent += line + "\n";
+      scanLog.scrollTop = scanLog.scrollHeight;
+    }
+
+    async function startBatch(event) {
+      event.preventDefault();
+      const form = document.getElementById("batch-form");
+      const startBtn = document.getElementById("start-btn");
+      const summaryDiv = document.getElementById("batch-done-summary");
+      startBtn.disabled = true;
+      summaryDiv.classList.add("hidden");
+      summaryDiv.textContent = "";
+      document.getElementById("scan-log").textContent = "";
+      document.getElementById("progress-section").classList.remove("hidden");
+
+      const response = await fetch("/admin/batch/start", { method: "POST", body: new FormData(form) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        startBtn.disabled = false;
+        appendLog("ERROR: " + (payload.error || payload.detail || "failed to start"));
+        return;
+      }
+
+      connectSSE();
+    }
+
+    function connectSSE() {
+      if (eventSource) {
+        eventSource.close();
+      }
+      document.getElementById("progress-section").classList.remove("hidden");
+      eventSource = new EventSource("/admin/batch/status");
+      eventSource.onmessage = (event) => {
+        let data = {};
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+
+        if (data.idle) {
+          eventSource.close();
+          eventSource = null;
+          return;
+        }
+
+        if (data.total && typeof data.done === "number") {
+          const pct = Math.max(0, Math.min(100, (data.done / data.total) * 100));
+          document.getElementById("progress-bar").style.width = pct + "%";
+          document.getElementById("progress-label").textContent = data.done + " / " + data.total;
+
+          if (data.url) {
+            if (data.status === "error") {
+              appendLog("[" + data.done + "/" + data.total + "] " + data.url + " -> ERROR: " + (data.error || "unknown"));
+            } else if (data.status === "skipped") {
+              appendLog("[" + data.done + "/" + data.total + "] " + data.url + " -> SKIPPED: " + (data.error || "skipped"));
+            } else {
+              appendLog("[" + data.done + "/" + data.total + "] " + data.url + " -> " + (data.grade || "-"));
+            }
+          }
+        }
+
+        if (data.finished) {
+          const summary = data.summary || {};
+          const summaryDiv = document.getElementById("batch-done-summary");
+          summaryDiv.textContent =
+            "Done: total=" + (summary.total || 0) +
+            ", success=" + (summary.success || 0) +
+            ", failed=" + (summary.failed || 0) +
+            ", skipped=" + (summary.skipped || 0) +
+            ", duration=" + Number(summary.duration_s || 0).toFixed(2) + "s";
+          summaryDiv.classList.remove("hidden");
+          document.getElementById("start-btn").disabled = false;
+          eventSource.close();
+          eventSource = null;
+        }
+      };
+    }
+
+    async function cancelBatch() {
+      await fetch("/admin/batch/cancel", { method: "POST" });
+      appendLog("Cancellation requested.");
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("batch-form").addEventListener("submit", startBatch);
+      document.getElementById("cancel-btn").addEventListener("click", cancelBatch);
+      if (document.body.dataset.batchRunning === "true") {
+        connectSSE();
+      }
+    });
+  </script>
+</body>
+</html>
