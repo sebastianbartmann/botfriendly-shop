@@ -23,6 +23,7 @@ from checks.discovery import DiscoveryCheck
 from checks.feeds import FeedsCheck
 from checks.product_parseability import ProductParseabilityCheck
 from checks.robots import AI_BOTS, TIER_LABELS, RobotsCheck
+from checks.semantic_accessibility import SemanticAccessibilityCheck
 from checks.seo_meta import SeoMetaCheck
 from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
@@ -46,6 +47,7 @@ CHECKS = [
     FeedsCheck(),
     APISurfaceCheck(),
     ProductParseabilityCheck(),
+    SemanticAccessibilityCheck(),
 ]
 
 CATEGORY_LABELS = {
@@ -57,6 +59,7 @@ CATEGORY_LABELS = {
     "feeds": "Product Feed Availability",
     "api_surface": "API Surface",
     "product_parseability": "Product Parseability",
+    "semantic_accessibility": "Semantic HTML & Accessibility",
 }
 
 scans: dict[str, dict[str, Any]] = {}
