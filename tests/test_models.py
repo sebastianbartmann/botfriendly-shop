@@ -45,7 +45,7 @@ def test_scan_result_creation_with_metadata():
 
 
 def test_signal_creation_with_all_severity_levels():
-    levels = [Severity.PASS, Severity.PARTIAL, Severity.FAIL, Severity.INCONCLUSIVE]
+    levels = [Severity.PASS, Severity.PARTIAL, Severity.FAIL, Severity.INFO, Severity.INCONCLUSIVE]
     signals = [Signal(name=level.value, value=True, severity=level, detail="x") for level in levels]
 
     assert [signal.severity for signal in signals] == levels
@@ -95,5 +95,6 @@ def test_severity_values():
     assert Severity.PASS.value == "pass"
     assert Severity.PARTIAL.value == "partial"
     assert Severity.FAIL.value == "fail"
+    assert Severity.INFO.value == "info"
     assert Severity.INCONCLUSIVE.value == "inconclusive"
-    assert [member.value for member in Severity] == ["pass", "partial", "fail", "inconclusive"]
+    assert [member.value for member in Severity] == ["pass", "partial", "fail", "info", "inconclusive"]

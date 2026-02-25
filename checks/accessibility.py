@@ -151,12 +151,22 @@ class AccessibilityCheck(BaseCheck):
     requires_browser = False
 
     _BAD_LINK_TEXT = {
+        "back",
         "click here",
-        "read more",
-        "link",
+        "continue",
+        "details",
+        "find out more",
+        "go",
         "here",
-        "more",
+        "info",
         "learn more",
+        "link",
+        "more",
+        "next",
+        "previous",
+        "read more",
+        "see more",
+        "this",
     }
 
     async def run(self, url: str, artifacts: dict) -> CheckResult:
@@ -200,7 +210,7 @@ class AccessibilityCheck(BaseCheck):
         signals = [
             Signal(
                 name="image_alt_text",
-                value=f"{image_alt_details['with_alt']}/{image_alt_details['total_images']}",
+                value=f"missing_alt={image_alt_details['missing_alt']}/{image_alt_details['total_images']}",
                 severity=self._severity_for_score(image_alt_score),
             ),
             Signal(
@@ -226,13 +236,18 @@ class AccessibilityCheck(BaseCheck):
             Signal(
                 name="table_accessibility",
                 value=table_accessibility_details["summary"],
-                severity=self._severity_for_score(table_accessibility_score),
+                severity=(
+                    Severity.INFO
+                    if table_accessibility_details["table_count"] == 0
+                    else self._severity_for_score(table_accessibility_score)
+                ),
+                detail="No tables found on page" if table_accessibility_details["table_count"] == 0 else "",
             ),
         ]
 
         recommendations: list[str] = []
         if image_alt_score < 1.0:
-            recommendations.append("Add meaningful, non-empty alt text to all non-decorative images.")
+            recommendations.append("Add alt attributes to all images; use alt='' for decorative images.")
         if landmarks_score < 1.0:
             recommendations.append("Provide core page landmarks (banner, navigation, main, contentinfo) with semantic tags or ARIA roles.")
         if form_labels_score < 1.0:
@@ -241,7 +256,7 @@ class AccessibilityCheck(BaseCheck):
             recommendations.append("Use descriptive link text instead of generic phrases like 'click here' or 'read more'.")
         if skip_nav_score < 1.0:
             recommendations.append("Add a skip-to-content link near the top of the page for keyboard and assistive tech users.")
-        if table_accessibility_score < 1.0:
+        if table_accessibility_details["table_count"] > 0 and table_accessibility_score < 1.0:
             recommendations.append("For data tables, use <thead>, header cells (<th>), and scope attributes.")
 
         return CheckResult(
@@ -282,16 +297,15 @@ class AccessibilityCheck(BaseCheck):
         images = soup.find_all("img")
         total_images = len(images)
         if total_images == 0:
-            return 0.5, {"total_images": 0, "with_alt": 0, "ratio": 1.0}
+            return 0.5, {"total_images": 0, "with_alt": 0, "missing_alt": 0, "ratio": 1.0}
 
         with_alt = 0
         for image in images:
-            alt_text = image.get("alt")
-            if isinstance(alt_text, str) and alt_text.strip():
+            if "alt" in image.attrs:
                 with_alt += 1
 
         ratio = with_alt / total_images
-        return ratio, {"total_images": total_images, "with_alt": with_alt, "ratio": ratio}
+        return ratio, {"total_images": total_images, "with_alt": with_alt, "missing_alt": total_images - with_alt, "ratio": ratio}
 
     @staticmethod
     def _check_landmarks(soup) -> tuple[float, dict]:
@@ -308,6 +322,7 @@ class AccessibilityCheck(BaseCheck):
     @staticmethod
     def _check_form_labels(soup) -> tuple[float, dict]:
         inputs = [tag for tag in soup.find_all("input") if (tag.get("type") or "text").lower() not in {"hidden", "submit", "button", "reset", "image"}]
+        inputs.extend(soup.find_all(["select", "textarea"]))
 
         total_inputs = len(inputs)
         if total_inputs == 0:
@@ -365,11 +380,11 @@ class AccessibilityCheck(BaseCheck):
     def _check_table_accessibility(soup) -> tuple[float, dict]:
         tables = soup.find_all("table")
         if not tables:
-            return 1.0, {
+            return 0.5, {
                 "table_count": 0,
                 "accessible_tables": 0,
-                "average_table_score": 1.0,
-                "summary": "no_tables",
+                "average_table_score": 0.5,
+                "summary": "No tables found on page",
             }
 
         table_scores: list[float] = []

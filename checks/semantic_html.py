@@ -152,7 +152,6 @@ class SemanticHtmlCheck(BaseCheck):
     requires_browser = False
 
     _SEMANTIC_ELEMENTS = ("header", "nav", "main", "footer", "article", "section", "aside")
-    _CONTENT_SEMANTIC_ELEMENTS = ("figure", "figcaption", "time", "address")
 
     async def run(self, url: str, artifacts: dict) -> CheckResult:
         index = artifacts.get("index")
@@ -169,13 +168,11 @@ class SemanticHtmlCheck(BaseCheck):
         semantic_elements_score, semantic_elements_used = self._check_semantic_elements(soup)
         heading_score, heading_details = self._check_heading_hierarchy(soup, parser.h1_count)
         nav_list_score, nav_list_details = self._check_semantic_navigation_lists(soup)
-        content_semantics_score, content_semantics_details = self._check_content_semantics(soup)
 
         item_scores = [
             semantic_elements_score,
             heading_score,
             nav_list_score,
-            content_semantics_score,
         ]
         score = sum(item_scores) / len(item_scores)
         if not html.strip():
@@ -205,22 +202,15 @@ class SemanticHtmlCheck(BaseCheck):
                 value=nav_list_details["summary"],
                 severity=self._severity_for_score(nav_list_score),
             ),
-            Signal(
-                name="content_semantic_elements",
-                value=f"{content_semantics_details['present_count']}/{len(self._CONTENT_SEMANTIC_ELEMENTS)}",
-                severity=self._severity_for_score(content_semantics_score),
-            ),
         ]
 
         recommendations: list[str] = []
         if semantic_elements_score < 1.0:
             recommendations.append("Use more HTML5 semantic elements like <header>, <main>, <article>, and <footer>.")
         if heading_score < 1.0:
-            recommendations.append("Use exactly one <h1> and avoid skipped heading levels (e.g., h2 -> h4).")
+            recommendations.append("Use at least one <h1> and avoid skipped heading levels (e.g., h2 -> h4).")
         if nav_list_score < 1.0:
             recommendations.append("Mark navigation menus with semantic list markup (<ul>/<ol>/<li>) inside navigation landmarks.")
-        if content_semantics_score < 1.0:
-            recommendations.append("Use semantic content tags where relevant, such as <figure>/<figcaption>, <time>, and <address>.")
 
         return CheckResult(
             category="semantic_html",
@@ -232,7 +222,6 @@ class SemanticHtmlCheck(BaseCheck):
                 "semantic_elements_used": semantic_elements_used,
                 "heading_hierarchy": heading_details,
                 "semantic_navigation_lists": nav_list_details,
-                "content_semantic_elements": content_semantics_details,
             },
             recommendations=recommendations,
         )
@@ -268,19 +257,32 @@ class SemanticHtmlCheck(BaseCheck):
 
         starts_with_h1 = bool(levels) and levels[0] == 1
         no_skips = skipped_transitions == 0
+        starts_with_heading = bool(levels)
+        starts_with_h2 = starts_with_heading and levels[0] == 2
 
-        component_scores = [
-            1.0 if h1_count == 1 else 0.0,
-            1.0 if no_skips and levels else 0.0,
-            1.0 if starts_with_h1 else 0.0,
-        ]
-        score = sum(component_scores) / len(component_scores)
+        if h1_count == 1:
+            score = 1.0
+            message = "Exactly one <h1> found."
+        elif h1_count > 1:
+            score = 0.75
+            message = "Multiple <h1> elements found; keep one primary heading when possible."
+        elif starts_with_h2:
+            score = 0.25
+            message = "Headings start at <h2> without a primary <h1>."
+        else:
+            score = 0.0
+            message = "No <h1> heading found."
+
+        if not no_skips:
+            score = max(score - 0.5, 0.0)
 
         return score, {
             "h1_count": h1_count,
             "heading_levels": levels,
             "skipped_transitions": skipped_transitions,
             "starts_with_h1": starts_with_h1,
+            "starts_with_h2": starts_with_h2,
+            "message": message,
             "summary": f"h1={h1_count}, skips={skipped_transitions}",
         }
 
@@ -311,7 +313,7 @@ class SemanticHtmlCheck(BaseCheck):
         if semantic_nav_count > 0:
             score = 1.0
         elif deduped_nav_containers:
-            score = 0.5
+            score = 0.75
         else:
             score = 0.0
 
@@ -320,8 +322,3 @@ class SemanticHtmlCheck(BaseCheck):
             "semantic_navigation_regions": semantic_nav_count,
             "summary": f"regions={len(deduped_nav_containers)}, semantic={semantic_nav_count}",
         }
-
-    def _check_content_semantics(self, soup) -> tuple[float, dict]:
-        present = [tag for tag in self._CONTENT_SEMANTIC_ELEMENTS if soup.find(tag) is not None]
-        score = len(present) / len(self._CONTENT_SEMANTIC_ELEMENTS)
-        return score, {"present": present, "present_count": len(present)}

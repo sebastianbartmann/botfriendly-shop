@@ -85,9 +85,22 @@ async def test_accessibility_image_alt_ratio_is_used():
 
     result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
 
-    assert result.details["image_alt_text"]["with_alt"] == 1
+    assert result.details["image_alt_text"]["with_alt"] == 2
+    assert result.details["image_alt_text"]["missing_alt"] == 1
     assert result.details["image_alt_text"]["total_images"] == 3
     assert next(s for s in result.signals if s.name == "image_alt_text").severity == Severity.PARTIAL
+
+
+@pytest.mark.asyncio
+async def test_accessibility_image_alt_empty_is_valid_for_decorative():
+    check = AccessibilityCheck()
+    html = "<html><body><img src='decorative.jpg' alt=''></body></html>"
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.details["image_alt_text"]["with_alt"] == 1
+    assert result.details["image_alt_text"]["missing_alt"] == 0
+    assert next(s for s in result.signals if s.name == "image_alt_text").severity == Severity.PASS
 
 
 @pytest.mark.asyncio
@@ -140,6 +153,25 @@ async def test_accessibility_form_labels_accepts_aria_label():
 
 
 @pytest.mark.asyncio
+async def test_accessibility_form_labels_include_select_and_textarea():
+    check = AccessibilityCheck()
+    html = """
+    <html><body>
+      <form>
+        <label for='country'>Country</label><select id='country'><option>US</option></select>
+        <label>Notes<textarea></textarea></label>
+      </form>
+    </body></html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.details["form_labels"]["labeled_inputs"] == 2
+    assert result.details["form_labels"]["total_inputs"] == 2
+    assert next(s for s in result.signals if s.name == "form_labels").severity == Severity.PASS
+
+
+@pytest.mark.asyncio
 async def test_accessibility_link_quality_flags_generic_text():
     check = AccessibilityCheck()
     html = """
@@ -154,6 +186,26 @@ async def test_accessibility_link_quality_flags_generic_text():
 
     assert result.details["link_quality"]["descriptive_links"] == 1
     assert result.details["link_quality"]["total_links"] == 3
+    assert next(s for s in result.signals if s.name == "link_quality").severity == Severity.PARTIAL
+
+
+@pytest.mark.asyncio
+async def test_accessibility_link_quality_flags_expanded_generic_words_full_match_only():
+    check = AccessibilityCheck()
+    html = """
+    <html><body>
+      <a href='/a'>Details</a>
+      <a href='/b'>Find out more</a>
+      <a href='/d'>NEXT</a>
+      <a href='/e'> Back </a>
+      <a href='/c'>Read more about Product X</a>
+    </body></html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert result.details["link_quality"]["descriptive_links"] == 1
+    assert result.details["link_quality"]["total_links"] == 5
     assert next(s for s in result.signals if s.name == "link_quality").severity == Severity.PARTIAL
 
 
@@ -214,6 +266,22 @@ async def test_accessibility_table_accessibility_pass_with_complete_headers():
 
     assert result.details["table_accessibility"]["accessible_tables"] == 1
     assert next(s for s in result.signals if s.name == "table_accessibility").severity == Severity.PASS
+
+
+@pytest.mark.asyncio
+async def test_accessibility_table_accessibility_no_tables_is_neutral_info():
+    check = AccessibilityCheck()
+    html = "<html><body><h1>Title</h1><p>No table content.</p></body></html>"
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    table = result.details["table_accessibility"]
+    table_signal = next(s for s in result.signals if s.name == "table_accessibility")
+    assert table["table_count"] == 0
+    assert table["average_table_score"] == 0.5
+    assert table["summary"] == "No tables found on page"
+    assert table_signal.severity == Severity.INFO
+    assert table_signal.detail == "No tables found on page"
 
 
 @pytest.mark.asyncio

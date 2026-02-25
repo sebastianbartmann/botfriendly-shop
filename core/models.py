@@ -7,6 +7,7 @@ class Severity(Enum):
     PASS = "pass"
     PARTIAL = "partial"
     FAIL = "fail"
+    INFO = "info"
     INCONCLUSIVE = "inconclusive"
 
 
