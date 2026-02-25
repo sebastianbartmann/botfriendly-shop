@@ -12,6 +12,7 @@ CATEGORY_WEIGHTS = {
     "feeds": 15,
     "api_surface": 10,
     "seo_meta": 10,
+    "semantic_accessibility": 10,
 }
 
 
