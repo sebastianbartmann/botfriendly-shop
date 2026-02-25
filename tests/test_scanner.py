@@ -3,7 +3,8 @@ import pytest
 from collections.abc import Sequence
 
 from checks.base import BaseCheck
-from checks.semantic_accessibility import SemanticAccessibilityCheck
+from checks.accessibility import AccessibilityCheck
+from checks.semantic_html import SemanticHtmlCheck
 from core.models import CheckResult, Severity
 from core.scanner import Scanner
 
@@ -221,6 +222,7 @@ async def test_scanner_http_errors_are_tolerated(monkeypatch):
     assert result.metadata["grade"] == "F"
 
 
-def test_scanner_default_checks_include_semantic_accessibility():
+def test_scanner_default_checks_include_semantic_and_accessibility():
     scanner = Scanner()
-    assert any(isinstance(check, SemanticAccessibilityCheck) for check in scanner.checks)
+    assert any(isinstance(check, SemanticHtmlCheck) for check in scanner.checks)
+    assert any(isinstance(check, AccessibilityCheck) for check in scanner.checks)

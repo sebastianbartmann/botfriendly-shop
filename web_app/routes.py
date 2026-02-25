@@ -19,11 +19,12 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sse_starlette.sse import EventSourceResponse
 
 from checks.api_surface import APISurfaceCheck
+from checks.accessibility import AccessibilityCheck
 from checks.discovery import DiscoveryCheck
 from checks.feeds import FeedsCheck
 from checks.product_parseability import ProductParseabilityCheck
 from checks.robots import AI_BOTS, TIER_LABELS, RobotsCheck
-from checks.semantic_accessibility import SemanticAccessibilityCheck
+from checks.semantic_html import SemanticHtmlCheck
 from checks.seo_meta import SeoMetaCheck
 from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
@@ -47,7 +48,8 @@ CHECKS = [
     FeedsCheck(),
     APISurfaceCheck(),
     ProductParseabilityCheck(),
-    SemanticAccessibilityCheck(),
+    SemanticHtmlCheck(),
+    AccessibilityCheck(),
 ]
 
 CATEGORY_LABELS = {
@@ -59,7 +61,8 @@ CATEGORY_LABELS = {
     "feeds": "Product Feed Availability",
     "api_surface": "API Surface",
     "product_parseability": "Product Parseability",
-    "semantic_accessibility": "Semantic HTML & Accessibility",
+    "semantic_html": "Semantic HTML",
+    "accessibility": "Accessibility",
 }
 
 scans: dict[str, dict[str, Any]] = {}

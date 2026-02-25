@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from checks.semantic_accessibility import SemanticAccessibilityCheck
+from checks.accessibility import AccessibilityCheck
 from core.models import Severity
 
 
@@ -21,17 +21,10 @@ def _full_html() -> str:
         <main id="main-content">
           <article>
             <h1>Running Shoes</h1>
-            <section>
-              <h2>Trail Collection</h2>
-              <figure>
-                <img src="shoe.jpg" alt="Blue trail running shoe" />
-                <figcaption>Blue trail runner, waterproof upper</figcaption>
-              </figure>
-              <time datetime="2026-02-20">February 20, 2026</time>
-            </section>
-            <aside>
-              <address>100 Market St, San Francisco, CA</address>
-            </aside>
+            <figure>
+              <img src="shoe.jpg" alt="Blue trail running shoe" />
+              <figcaption>Blue trail runner, waterproof upper</figcaption>
+            </figure>
             <form>
               <label for="email">Email</label>
               <input id="email" type="email" />
@@ -59,19 +52,19 @@ def _full_html() -> str:
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_full_html_scores_full():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_full_html_scores_full():
+    check = AccessibilityCheck()
 
     result = await check.run("https://example.com", {"index": {"status_code": 200, "text": _full_html()}})
 
     assert result.score == 1.0
     assert result.severity == Severity.PASS
-    assert len(result.signals) == 10
+    assert len(result.signals) == 6
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_empty_html_scores_low_and_fails():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_empty_html_scores_low_and_fails():
+    check = AccessibilityCheck()
 
     result = await check.run("https://example.com", {"index": {"status_code": 200, "text": ""}})
 
@@ -80,78 +73,8 @@ async def test_semantic_accessibility_empty_html_scores_low_and_fails():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_semantic_element_coverage_partial():
-    check = SemanticAccessibilityCheck()
-    html = "<html><body><header></header><main><h1>Title</h1></main></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    assert result.details["semantic_elements_used"] == ["header", "main"]
-    assert next(s for s in result.signals if s.name == "semantic_elements").severity == Severity.PARTIAL
-
-
-@pytest.mark.asyncio
-async def test_semantic_accessibility_heading_hierarchy_with_skips_is_partial():
-    check = SemanticAccessibilityCheck()
-    html = "<html><body><h1>Title</h1><h3>Skipped h2</h3></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    heading = result.details["heading_hierarchy"]
-    assert heading["skipped_transitions"] == 1
-    assert heading["h1_count"] == 1
-    assert next(s for s in result.signals if s.name == "heading_hierarchy").severity == Severity.PARTIAL
-
-
-@pytest.mark.asyncio
-async def test_semantic_accessibility_heading_hierarchy_multiple_h1_is_partial():
-    check = SemanticAccessibilityCheck()
-    html = "<html><body><h1>Title</h1><h2>Section</h2><h1>Another</h1></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    assert result.details["heading_hierarchy"]["h1_count"] == 2
-    assert next(s for s in result.signals if s.name == "heading_hierarchy").severity == Severity.PARTIAL
-
-
-@pytest.mark.asyncio
-async def test_semantic_accessibility_nav_without_list_is_partial():
-    check = SemanticAccessibilityCheck()
-    html = "<html><body><nav><div><a href='/a'>A</a></div></nav><h1>Title</h1></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    assert result.details["semantic_navigation_lists"]["navigation_regions"] == 1
-    assert result.details["semantic_navigation_lists"]["semantic_navigation_regions"] == 0
-    assert next(s for s in result.signals if s.name == "semantic_navigation_lists").severity == Severity.PARTIAL
-
-
-@pytest.mark.asyncio
-async def test_semantic_accessibility_nav_with_semantic_list_passes():
-    check = SemanticAccessibilityCheck()
-    html = "<html><body><nav><ul><li><a href='/a'>Products</a></li></ul></nav><h1>Title</h1></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    assert result.details["semantic_navigation_lists"]["semantic_navigation_regions"] == 1
-    assert next(s for s in result.signals if s.name == "semantic_navigation_lists").severity == Severity.PASS
-
-
-@pytest.mark.asyncio
-async def test_semantic_accessibility_content_semantic_elements_partial():
-    check = SemanticAccessibilityCheck()
-    html = "<html><body><h1>Title</h1><figure></figure><time datetime='2026-01-01'>Jan 1</time></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    details = result.details["content_semantic_elements"]
-    assert set(details["present"]) == {"figure", "time"}
-    assert next(s for s in result.signals if s.name == "content_semantic_elements").severity == Severity.PARTIAL
-
-
-@pytest.mark.asyncio
-async def test_semantic_accessibility_image_alt_ratio_is_used():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_image_alt_ratio_is_used():
+    check = AccessibilityCheck()
     html = """
     <html><body><h1>Title</h1>
       <img src='a.jpg' alt='A shoe'>
@@ -168,8 +91,8 @@ async def test_semantic_accessibility_image_alt_ratio_is_used():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_landmarks_detected_from_roles():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_landmarks_detected_from_roles():
+    check = AccessibilityCheck()
     html = """
     <html><body>
       <div role='banner'></div>
@@ -187,8 +110,8 @@ async def test_semantic_accessibility_landmarks_detected_from_roles():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_form_labels_partial_when_one_missing():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_form_labels_partial_when_one_missing():
+    check = AccessibilityCheck()
     html = """
     <html><body><h1>Title</h1>
       <form>
@@ -206,8 +129,8 @@ async def test_semantic_accessibility_form_labels_partial_when_one_missing():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_form_labels_accepts_aria_label():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_form_labels_accepts_aria_label():
+    check = AccessibilityCheck()
     html = "<html><body><h1>Title</h1><input aria-label='Search products'></body></html>"
 
     result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
@@ -217,8 +140,8 @@ async def test_semantic_accessibility_form_labels_accepts_aria_label():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_link_quality_flags_generic_text():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_link_quality_flags_generic_text():
+    check = AccessibilityCheck()
     html = """
     <html><body><h1>Title</h1>
       <a href='/a'>click here</a>
@@ -235,8 +158,8 @@ async def test_semantic_accessibility_link_quality_flags_generic_text():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_skip_navigation_detected():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_skip_navigation_detected():
+    check = AccessibilityCheck()
     html = "<html><body><a href='#content'>Skip to content</a><h1>Title</h1></body></html>"
 
     result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
@@ -246,8 +169,8 @@ async def test_semantic_accessibility_skip_navigation_detected():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_skip_navigation_missing_is_fail_signal():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_skip_navigation_missing_is_fail_signal():
+    check = AccessibilityCheck()
     html = "<html><body><h1>Title</h1><a href='#details'>Jump to details</a></body></html>"
 
     result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
@@ -257,8 +180,8 @@ async def test_semantic_accessibility_skip_navigation_missing_is_fail_signal():
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_table_accessibility_partial_without_scope():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_table_accessibility_partial_without_scope():
+    check = AccessibilityCheck()
     html = """
     <html><body><h1>Title</h1>
       <table>
@@ -276,8 +199,8 @@ async def test_semantic_accessibility_table_accessibility_partial_without_scope(
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_table_accessibility_pass_with_complete_headers():
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_table_accessibility_pass_with_complete_headers():
+    check = AccessibilityCheck()
     html = """
     <html><body><h1>Title</h1>
       <table>
@@ -294,8 +217,8 @@ async def test_semantic_accessibility_table_accessibility_pass_with_complete_hea
 
 
 @pytest.mark.asyncio
-async def test_semantic_accessibility_fetches_index_when_missing(monkeypatch, fake_get_factory):
-    check = SemanticAccessibilityCheck()
+async def test_accessibility_fetches_index_when_missing(monkeypatch, fake_get_factory):
+    check = AccessibilityCheck()
     monkeypatch.setattr(
         httpx.AsyncClient,
         "get",

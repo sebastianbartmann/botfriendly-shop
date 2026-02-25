@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 import httpx
 
 from checks.base import BaseCheck
-from checks.html_extract import parse_html_features
 from core.models import CheckResult, Severity, Signal
 
 try:
@@ -148,11 +147,9 @@ except ModuleNotFoundError:
         return _SimpleSoup.parse(html)
 
 
-class SemanticAccessibilityCheck(BaseCheck):
+class AccessibilityCheck(BaseCheck):
     requires_browser = False
 
-    _SEMANTIC_ELEMENTS = ("header", "nav", "main", "footer", "article", "section", "aside")
-    _CONTENT_SEMANTIC_ELEMENTS = ("figure", "figcaption", "time", "address")
     _BAD_LINK_TEXT = {
         "click here",
         "read more",
@@ -172,12 +169,7 @@ class SemanticAccessibilityCheck(BaseCheck):
 
         html_text = html if isinstance(html, str) else ""
         soup = _parse_html(html_text)
-        parser = parse_html_features(html_text)
 
-        semantic_elements_score, semantic_elements_used = self._check_semantic_elements(soup)
-        heading_score, heading_details = self._check_heading_hierarchy(soup, parser.h1_count)
-        nav_list_score, nav_list_details = self._check_semantic_navigation_lists(soup)
-        content_semantics_score, content_semantics_details = self._check_content_semantics(soup)
         image_alt_score, image_alt_details = self._check_image_alt_text(soup)
         landmarks_score, landmarks_details = self._check_landmarks(soup)
         form_labels_score, form_labels_details = self._check_form_labels(soup)
@@ -186,10 +178,6 @@ class SemanticAccessibilityCheck(BaseCheck):
         table_accessibility_score, table_accessibility_details = self._check_table_accessibility(soup)
 
         item_scores = [
-            semantic_elements_score,
-            heading_score,
-            nav_list_score,
-            content_semantics_score,
             image_alt_score,
             landmarks_score,
             form_labels_score,
@@ -199,7 +187,6 @@ class SemanticAccessibilityCheck(BaseCheck):
         ]
         score = sum(item_scores) / len(item_scores)
         if not html.strip():
-            # Treat fully empty documents as non-parseable despite neutral checks with no applicable elements.
             score = 0.0
 
         epsilon = 1e-9
@@ -211,26 +198,6 @@ class SemanticAccessibilityCheck(BaseCheck):
             severity = Severity.FAIL
 
         signals = [
-            Signal(
-                name="semantic_elements",
-                value=f"{len(semantic_elements_used)}/{len(self._SEMANTIC_ELEMENTS)}",
-                severity=self._severity_for_score(semantic_elements_score),
-            ),
-            Signal(
-                name="heading_hierarchy",
-                value=heading_details["summary"],
-                severity=self._severity_for_score(heading_score),
-            ),
-            Signal(
-                name="semantic_navigation_lists",
-                value=nav_list_details["summary"],
-                severity=self._severity_for_score(nav_list_score),
-            ),
-            Signal(
-                name="content_semantic_elements",
-                value=f"{content_semantics_details['present_count']}/{len(self._CONTENT_SEMANTIC_ELEMENTS)}",
-                severity=self._severity_for_score(content_semantics_score),
-            ),
             Signal(
                 name="image_alt_text",
                 value=f"{image_alt_details['with_alt']}/{image_alt_details['total_images']}",
@@ -264,14 +231,6 @@ class SemanticAccessibilityCheck(BaseCheck):
         ]
 
         recommendations: list[str] = []
-        if semantic_elements_score < 1.0:
-            recommendations.append("Use more HTML5 semantic elements like <header>, <main>, <article>, and <footer>.")
-        if heading_score < 1.0:
-            recommendations.append("Use exactly one <h1> and avoid skipped heading levels (e.g., h2 -> h4).")
-        if nav_list_score < 1.0:
-            recommendations.append("Mark navigation menus with semantic list markup (<ul>/<ol>/<li>) inside navigation landmarks.")
-        if content_semantics_score < 1.0:
-            recommendations.append("Use semantic content tags where relevant, such as <figure>/<figcaption>, <time>, and <address>.")
         if image_alt_score < 1.0:
             recommendations.append("Add meaningful, non-empty alt text to all non-decorative images.")
         if landmarks_score < 1.0:
@@ -286,16 +245,12 @@ class SemanticAccessibilityCheck(BaseCheck):
             recommendations.append("For data tables, use <thead>, header cells (<th>), and scope attributes.")
 
         return CheckResult(
-            category="semantic_accessibility",
+            category="accessibility",
             score=score,
             severity=severity,
             signals=signals,
             details={
                 "status_code": status_code,
-                "semantic_elements_used": semantic_elements_used,
-                "heading_hierarchy": heading_details,
-                "semantic_navigation_lists": nav_list_details,
-                "content_semantic_elements": content_semantics_details,
                 "image_alt_text": image_alt_details,
                 "landmarks": landmarks_details,
                 "form_labels": form_labels_details,
@@ -321,79 +276,6 @@ class SemanticAccessibilityCheck(BaseCheck):
         if item_score > 0.0:
             return Severity.PARTIAL
         return Severity.FAIL
-
-    def _check_semantic_elements(self, soup) -> tuple[float, list[str]]:
-        used = [tag for tag in self._SEMANTIC_ELEMENTS if soup.find(tag) is not None]
-        return len(used) / len(self._SEMANTIC_ELEMENTS), used
-
-    @staticmethod
-    def _check_heading_hierarchy(soup, h1_count: int) -> tuple[float, dict]:
-        levels = [int(tag.name[1]) for tag in soup.find_all(re.compile(r"^h[1-6]$"))]
-
-        skipped_transitions = 0
-        for prev, curr in zip(levels, levels[1:]):
-            if curr > prev + 1:
-                skipped_transitions += 1
-
-        starts_with_h1 = bool(levels) and levels[0] == 1
-        no_skips = skipped_transitions == 0
-
-        component_scores = [
-            1.0 if h1_count == 1 else 0.0,
-            1.0 if no_skips and levels else 0.0,
-            1.0 if starts_with_h1 else 0.0,
-        ]
-        score = sum(component_scores) / len(component_scores)
-
-        return score, {
-            "h1_count": h1_count,
-            "heading_levels": levels,
-            "skipped_transitions": skipped_transitions,
-            "starts_with_h1": starts_with_h1,
-            "summary": f"h1={h1_count}, skips={skipped_transitions}",
-        }
-
-    @staticmethod
-    def _check_semantic_navigation_lists(soup) -> tuple[float, dict]:
-        nav_containers = [
-            tag
-            for tag in soup.find_all(["nav", "header", "div", "aside", "section"])
-            if "navigation" in (tag.get("role", "") or "").lower().split()
-        ]
-        nav_containers.extend(soup.find_all("nav"))
-
-        seen: set[int] = set()
-        deduped_nav_containers = []
-        for container in nav_containers:
-            identity = id(container)
-            if identity not in seen:
-                deduped_nav_containers.append(container)
-                seen.add(identity)
-
-        semantic_nav_count = 0
-        for container in deduped_nav_containers:
-            for list_tag in container.find_all(["ul", "ol"]):
-                if list_tag.find("li") is not None:
-                    semantic_nav_count += 1
-                    break
-
-        if semantic_nav_count > 0:
-            score = 1.0
-        elif deduped_nav_containers:
-            score = 0.5
-        else:
-            score = 0.0
-
-        return score, {
-            "navigation_regions": len(deduped_nav_containers),
-            "semantic_navigation_regions": semantic_nav_count,
-            "summary": f"regions={len(deduped_nav_containers)}, semantic={semantic_nav_count}",
-        }
-
-    def _check_content_semantics(self, soup) -> tuple[float, dict]:
-        present = [tag for tag in self._CONTENT_SEMANTIC_ELEMENTS if soup.find(tag) is not None]
-        score = len(present) / len(self._CONTENT_SEMANTIC_ELEMENTS)
-        return score, {"present": present, "present_count": len(present)}
 
     @staticmethod
     def _check_image_alt_text(soup) -> tuple[float, dict]:

@@ -6,11 +6,12 @@ from urllib.parse import urljoin
 import httpx
 
 from checks.api_surface import APISurfaceCheck
+from checks.accessibility import AccessibilityCheck
 from checks.discovery import DISCOVERY_PATHS, DiscoveryCheck
 from checks.feeds import FeedsCheck
 from checks.product_parseability import ProductParseabilityCheck
 from checks.robots import RobotsCheck
-from checks.semantic_accessibility import SemanticAccessibilityCheck
+from checks.semantic_html import SemanticHtmlCheck
 from checks.seo_meta import SeoMetaCheck
 from checks.sitemap import SitemapCheck
 from checks.structured_data import StructuredDataCheck
@@ -33,7 +34,8 @@ class Scanner:
             FeedsCheck(),
             APISurfaceCheck(),
             ProductParseabilityCheck(),
-            SemanticAccessibilityCheck(),
+            SemanticHtmlCheck(),
+            AccessibilityCheck(),
         ]
 
     async def scan(self, url: str) -> ScanResult:

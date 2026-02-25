@@ -57,9 +57,10 @@ def test_calculate_overall_score_unknown_category_uses_default_weight():
     assert calculate_overall_score(checks) == pytest.approx(expected)
 
 
-def test_calculate_overall_score_includes_semantic_accessibility_weight():
+def test_calculate_overall_score_includes_semantic_html_and_accessibility_weights():
     checks = [
-        _check("semantic_accessibility", 1.0),
+        _check("semantic_html", 1.0),
+        _check("accessibility", 1.0),
         _check("structured_data", 0.0),
     ]
     expected = 10.0 / 30.0
