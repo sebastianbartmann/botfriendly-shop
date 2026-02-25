@@ -1,7 +1,11 @@
 #!/bin/sh
-set -eu
+set -e
 
-mkdir -p /app/data
-chown -R app:app /app/data
+# Fix volume permissions if running as root
+if [ "$(id -u)" = "0" ]; then
+    chown -R app:app /app/data 2>/dev/null || true
+    exec gosu app "$@"
+fi
 
-exec gosu app "$@"
+# Already running as non-root
+exec "$@"
