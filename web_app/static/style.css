@@ -372,6 +372,28 @@ button:hover {
   animation: reveal .3s ease forwards;
 }
 
+.skeleton-card {
+  opacity: .78;
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(107, 114, 128, 0.16), rgba(107, 114, 128, 0.3), rgba(107, 114, 128, 0.16));
+  animation: skeleton-pulse 1.3s ease-in-out infinite;
+}
+
+.skeleton-header {
+  height: 20px;
+  margin-bottom: 14px;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: .3; }
+  50% { opacity: .6; }
+}
+
 @keyframes reveal {
   to { opacity: 1; transform: translateY(0); }
 }

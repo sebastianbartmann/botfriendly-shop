@@ -10,6 +10,7 @@
   const checkGrid = document.getElementById("check-grid");
   const loadingState = document.getElementById("loading-state");
   const errorBox = document.getElementById("error-box");
+  let skeletonCard = null;
 
   const severityColor = {
     pass: "#306230",
@@ -139,9 +140,36 @@
   }
 
   function setError(message) {
+    removeSkeletonCard();
     loadingState.classList.add("hidden");
     errorBox.classList.remove("hidden");
     errorBox.textContent = message;
+  }
+
+  function ensureSkeletonCard() {
+    if (skeletonCard) {
+      checkGrid.appendChild(skeletonCard);
+      return;
+    }
+
+    skeletonCard = document.createElement("article");
+    skeletonCard.className = "check-card skeleton-card";
+    skeletonCard.innerHTML = `
+      <div class="skeleton-line skeleton-header" style="width: 80%;"></div>
+      <div class="skeleton-line" style="width: 60%;"></div>
+      <div class="skeleton-line" style="width: 80%;"></div>
+      <div class="skeleton-line" style="width: 40%;"></div>
+      <div class="skeleton-line" style="width: 70%; margin-bottom: 0;"></div>
+    `;
+    checkGrid.appendChild(skeletonCard);
+  }
+
+  function removeSkeletonCard() {
+    if (!skeletonCard) {
+      return;
+    }
+    skeletonCard.remove();
+    skeletonCard = null;
   }
 
   if (context.preloadedComplete) {
@@ -165,15 +193,20 @@
 
     if (payload.type === "start") {
       overallScoreText.textContent = `Starting ${payload.check_count} checks...`;
+      ensureSkeletonCard();
       return;
     }
 
     if (payload.type === "check") {
       renderCheckCard(payload);
+      if (skeletonCard) {
+        checkGrid.appendChild(skeletonCard);
+      }
       return;
     }
 
     if (payload.type === "complete") {
+      removeSkeletonCard();
       updateOverall(payload.overall_score, payload.grade);
       loadingState.classList.add("hidden");
       stream.close();
