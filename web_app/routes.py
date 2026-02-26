@@ -65,6 +65,111 @@ CATEGORY_LABELS = {
     "accessibility": "Accessibility",
 }
 
+CATEGORY_INFO_GUIDES: dict[str, dict[str, Any]] = {
+    "robots": {
+        "overview": "Checks whether major AI shopping agents, AI search indexers, and AI training crawlers are allowed in robots.txt.",
+        "fields": [
+            {"name": "tiers.*.allowed/blocked/not_mentioned", "meaning": "Per bot tier: how many bots are explicitly allowed, blocked, or not mentioned."},
+            {"name": "overall", "meaning": "Totals across all tracked bots."},
+            {"name": "blocked_operators", "meaning": "Provider names where one or more bots are blocked."},
+            {"name": "status_code", "meaning": "HTTP response status for robots.txt."},
+            {"name": "reason", "meaning": "Why the result is fail/inconclusive when robots.txt could not be evaluated."},
+        ],
+    },
+    "discovery": {
+        "overview": "Checks common machine-readable discovery files like llms.txt and well-known AI plugin/MCP specs.",
+        "fields": [
+            {"name": "<path>.status_code", "meaning": "HTTP status returned for that discovery path."},
+            {"name": "<path>.content_type", "meaning": "Returned content type; must match the expected format."},
+            {"name": "<path>.final_url", "meaning": "Final URL after redirects; path should stay correct."},
+            {"name": "<path>.reachable", "meaning": "Whether the endpoint could be reached at all."},
+            {"name": "<path>.preview", "meaning": "Short preview of the response body when found."},
+        ],
+    },
+    "sitemap": {
+        "overview": "Validates sitemap presence, structure quality, freshness signals, and robots.txt linkage.",
+        "fields": [
+            {"name": "status_code/content_type/final_url", "meaning": "Fetch result metadata for sitemap.xml."},
+            {"name": "url_count", "meaning": "Number of <url> entries in sitemap files."},
+            {"name": "sitemap_count", "meaning": "Number of child sitemaps in a sitemap index."},
+            {"name": "has_lastmod", "meaning": "Whether lastmod fields are present."},
+            {"name": "fresh_lastmod", "meaning": "Whether newest lastmod appears fresh (<=30 days old)."},
+            {"name": "robots_sitemap_directive", "meaning": "Whether robots.txt declares a Sitemap: directive."},
+        ],
+    },
+    "structured_data": {
+        "overview": "Detects JSON-LD schema and Open Graph metadata used by AI and rich result systems.",
+        "fields": [
+            {"name": "json_ld_block_count", "meaning": "How many JSON-LD script blocks were found."},
+            {"name": "schema_types", "meaning": "All parsed schema.org types from JSON-LD."},
+            {"name": "action_schema_types", "meaning": "Action-oriented schema types like SearchAction/BuyAction."},
+            {"name": "open_graph_tags", "meaning": "Detected Open Graph product-related tags."},
+            {"name": "malformed_json_ld_blocks", "meaning": "Count of JSON-LD blocks that failed to parse."},
+            {"name": "status_code", "meaning": "Homepage HTTP status used for this check."},
+        ],
+    },
+    "seo_meta": {
+        "overview": "Checks SEO-critical metadata quality that also helps AI systems interpret storefront pages.",
+        "fields": [
+            {"name": "title_length", "meaning": "Length of the <title> text."},
+            {"name": "description_length", "meaning": "Length of the meta description text."},
+            {"name": "canonical", "meaning": "Canonical URL value if present."},
+            {"name": "language", "meaning": "Value of the html lang attribute."},
+            {"name": "viewport", "meaning": "Viewport meta value for mobile rendering support."},
+            {"name": "h1_count", "meaning": "Number of <h1> headings found."},
+        ],
+    },
+    "feeds": {
+        "overview": "Looks for alternate feed links and product feed hints useful for commerce indexing.",
+        "fields": [
+            {"name": "alternate_feed_hrefs", "meaning": "Feed URLs exposed via <link rel='alternate'> in HTML."},
+            {"name": "structured_feed_hrefs", "meaning": "Feed URLs with product/catalog naming hints."},
+            {"name": "google_shopping_hint", "meaning": "Whether page text hints at Merchant Center/shopping feed usage."},
+        ],
+    },
+    "api_surface": {
+        "overview": "Probes for OpenAPI/Swagger specs, GraphQL endpoint hints, and API doc links.",
+        "fields": [
+            {"name": "spec_found", "meaning": "Per known path, whether an API spec was validly discovered."},
+            {"name": "probe_status", "meaning": "Per probe result: found, not_found, or unknown."},
+            {"name": "graphql_options_status", "meaning": "HTTP status returned by OPTIONS /graphql probe."},
+            {"name": "doc_links", "meaning": "Homepage links that look like API/developer docs."},
+        ],
+    },
+    "product_parseability": {
+        "overview": "Measures whether product facts are complete and consistent across schema, metadata, and visible HTML.",
+        "fields": [
+            {"name": "schema_types", "meaning": "Schema types detected in JSON-LD."},
+            {"name": "jsonld_name/jsonld_price/jsonld_availability", "meaning": "Core Product JSON-LD fields extracted from offers."},
+            {"name": "og_title/og_price/og_currency", "meaning": "Core Open Graph product metadata values."},
+            {"name": "h1_count", "meaning": "Count of top-level headings."},
+            {"name": "price_element_count", "meaning": "Count of visible price-like elements in HTML."},
+            {"name": "price_consistent", "meaning": "Whether JSON-LD and OG prices numerically match."},
+            {"name": "malformed_json_ld_blocks", "meaning": "Count of invalid JSON-LD blocks encountered."},
+        ],
+    },
+    "semantic_html": {
+        "overview": "Evaluates semantic page structure, heading order, navigation semantics, CSR shell risk, and WAF interference.",
+        "fields": [
+            {"name": "semantic_elements_used", "meaning": "Which semantic tags (header/nav/main/footer/etc.) were found."},
+            {"name": "heading_hierarchy", "meaning": "Heading level order, h1 count, skip count, and summary message."},
+            {"name": "semantic_navigation_lists", "meaning": "Navigation region count and how many use semantic lists."},
+            {"name": "csr_trap", "meaning": "Signals that page may be mostly JS shell with little server-rendered content."},
+            {"name": "waf_interference", "meaning": "Signals of challenge/blocked pages that can affect bots."},
+        ],
+    },
+    "accessibility": {
+        "overview": "Checks practical accessibility markers tied to parseability for humans and machines.",
+        "fields": [
+            {"name": "image_alt_text", "meaning": "Image alt coverage totals and ratio."},
+            {"name": "landmarks", "meaning": "Presence of key landmarks: banner, navigation, main, contentinfo."},
+            {"name": "form_labels", "meaning": "Count and ratio of labeled form inputs."},
+            {"name": "link_quality", "meaning": "Count and ratio of links with descriptive text."},
+            {"name": "table_accessibility", "meaning": "Data table accessibility summary (headers/structure)."},
+        ],
+    },
+}
+
 scans: dict[str, dict[str, Any]] = {}
 scan_tasks: dict[str, asyncio.Task[None]] = {}
 
@@ -418,9 +523,10 @@ async def bots_page(request: Request):
     templates = request.app.state.templates
     tier_descriptions = {
         "agent": "These bots browse stores and can complete shopping steps on behalf of users, so allowing them can directly impact assisted commerce conversion.",
-        "crawler": "These bots index and retrieve your content for AI search, answers, and training, which affects discoverability and product visibility.",
+        "search_indexer": "These bots index or retrieve content for AI search and answer products, so allowing them improves discoverability in AI assistants.",
+        "training_crawler": "These bots collect content for model training datasets, so many merchants treat them separately from search-facing bots.",
     }
-    tier_order = ["agent", "crawler"]
+    tier_order = ["agent", "search_indexer", "training_crawler"]
     sections = [
         {
             "key": tier,
@@ -436,6 +542,29 @@ async def bots_page(request: Request):
             "request": request,
             "sections": sections,
             "bot_count": len(AI_BOTS),
+        },
+    )
+
+
+@router.get("/results/info/{category}")
+async def category_info_page(request: Request, category: str):
+    info = CATEGORY_INFO_GUIDES.get(category)
+    if info is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        "category_info.html",
+        {
+            "request": request,
+            "category": category,
+            "category_label": CATEGORY_LABELS.get(category, category.replace("_", " ").title()),
+            "overview": info["overview"],
+            "fields": info["fields"],
+            "categories": [
+                {"key": key, "label": label}
+                for key, label in CATEGORY_LABELS.items()
+            ],
         },
     )
 

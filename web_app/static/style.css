@@ -442,6 +442,7 @@ button:hover {
 }
 
 .signal-list,
+.detail-list,
 .reco-list {
   margin: .55rem 0 0;
   padding-left: 1rem;
@@ -450,7 +451,17 @@ button:hover {
   line-height: 1.55;
 }
 
+.detail-list li,
 .signal-list li { margin-bottom: .15rem; }
+
+.list-label {
+  margin-top: .55rem;
+  color: var(--text);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
 
 .tier-label {
   color: var(--text);
@@ -579,6 +590,39 @@ button:hover {
 
 .stats-link { margin-top: 0; }
 
+/* ─── category info page ─── */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+}
+
+.field-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+}
+
+.field-table th,
+.field-table td {
+  text-align: left;
+  padding: .6rem .55rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.field-table th {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.category-links {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+
 /* ─── responsive ─── */
 @media (max-width: 700px) {
   .container { margin-top: 1rem; }
@@ -587,7 +631,8 @@ button:hover {
   .overall-row { align-items: flex-start; flex-direction: column; }
   .stats-summary,
   .stats-charts-grid,
-  .stats-two-col { grid-template-columns: 1fr; }
+  .stats-two-col,
+  .category-grid { grid-template-columns: 1fr; }
   .chart-wide { grid-column: auto; }
   .top-nav { overflow-x: auto; }
 }

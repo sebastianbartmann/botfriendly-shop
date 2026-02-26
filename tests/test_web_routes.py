@@ -89,4 +89,26 @@ async def test_bots_page_renders():
     assert response.status_code == 200
     assert "AI Bots We Check For" in response.text
     assert "AI Shopping Agents" in response.text
-    assert "AI Crawlers &amp; Search" in response.text
+    assert "AI Search Indexers &amp; Retrieval" in response.text
+    assert "AI Training Crawlers" in response.text
+
+
+@pytest.mark.asyncio
+async def test_category_info_page_renders():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/results/info/robots")
+
+    assert response.status_code == 200
+    assert "Robots.txt AI Bot Access" in response.text
+    assert "Field Guide" in response.text
+
+
+@pytest.mark.asyncio
+async def test_category_info_page_unknown_category_returns_404():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/results/info/not-real")
+
+    assert response.status_code == 404
+    assert "Page not found" in response.text
