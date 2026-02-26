@@ -49,6 +49,8 @@ ENV/
 
 # Project data
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/results/
 # (ecom_urls.txt and default_urls.txt are tracked)
 *.duckdb
