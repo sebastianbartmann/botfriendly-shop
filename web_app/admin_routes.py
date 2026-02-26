@@ -91,7 +91,7 @@ async def admin_page(
 
     url_file = Path(__file__).parent.parent / "data" / "ecom_urls.txt"
     url_list = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
-    default_url_file = Path(__file__).parent.parent / "data" / "default_urls.txt"
+    default_url_file = Path(__file__).parent / "default_urls.txt"
     default_url_list = default_url_file.read_text(encoding="utf-8") if default_url_file.exists() else ""
 
     db_stats = _default_db_stats()
@@ -235,4 +235,3 @@ async def admin_batch_cancel(
     if _cancel_token is not None:
         _cancel_token.set()
     return JSONResponse({"status": "cancelling"})
-
