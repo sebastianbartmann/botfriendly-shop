@@ -206,7 +206,7 @@ async def test_sitemap_fetch_error_status_none_fails():
     result = await check.run("https://example.com", artifacts)
 
     assert result.score == 0.0
-    assert result.severity == Severity.FAIL
+    assert result.severity == Severity.INCONCLUSIVE
 
 
 @pytest.mark.asyncio

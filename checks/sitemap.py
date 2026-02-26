@@ -29,6 +29,18 @@ class SitemapCheck(BaseCheck):
         final_url = sitemap.get("final_url")
         is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
 
+        if self._is_unreachable_artifact(sitemap):
+            return self._inconclusive_result(
+                category="sitemap",
+                reason="sitemap.xml unreachable",
+                details={
+                    "status_code": status_code,
+                    "content_type": content_type,
+                    "final_url": final_url,
+                    "robots_sitemap_directive": robots_sitemap_present,
+                },
+            )
+
         if status_code != 200 or is_html_response:
             return CheckResult(
                 category="sitemap",

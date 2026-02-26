@@ -8,6 +8,10 @@ def _check(category: str, score: float) -> CheckResult:
     return CheckResult(category=category, score=score, severity=Severity.PASS)
 
 
+def _inconclusive_check(category: str) -> CheckResult:
+    return CheckResult(category=category, score=0.0, severity=Severity.INCONCLUSIVE)
+
+
 def test_calculate_overall_score_all_perfect():
     checks = [
         _check("structured_data", 1.0),
@@ -71,7 +75,24 @@ def test_calculate_overall_score_empty_results_is_zero():
     assert calculate_overall_score([]) == 0.0
 
 
+def test_calculate_overall_score_skips_inconclusive_checks():
+    checks = [
+        _check("structured_data", 0.8),
+        _inconclusive_check("robots"),
+    ]
+    assert calculate_overall_score(checks) == pytest.approx(0.8)
+
+
+def test_calculate_overall_score_all_inconclusive_is_none():
+    checks = [
+        _inconclusive_check("structured_data"),
+        _inconclusive_check("robots"),
+    ]
+    assert calculate_overall_score(checks) is None
+
+
 def test_get_grade_boundaries():
+    assert get_grade(None) == "N/A"
     assert get_grade(0.9) == "A+"
     assert get_grade(0.89) == "A"
     assert get_grade(0.8) == "A"

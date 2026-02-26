@@ -32,6 +32,6 @@ class CheckResult:
 @dataclass
 class ScanResult:
     url: str
-    overall_score: float
+    overall_score: float | None
     check_results: list[CheckResult] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)

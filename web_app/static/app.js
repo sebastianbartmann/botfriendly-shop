@@ -131,9 +131,16 @@
   }
 
   function updateOverall(score, grade) {
+    if (typeof score !== "number" || Number.isNaN(score)) {
+      gradeEl.textContent = grade || "N/A";
+      gradeEl.classList.remove("pending");
+      overallScoreBar.style.width = "0%";
+      overallScoreText.textContent = "Inconclusive (could not fetch enough data)";
+      return;
+    }
     const normalized = clampScore(score);
     const scorePercent = Math.round(normalized * 100);
-    gradeEl.textContent = grade;
+    gradeEl.textContent = grade || "N/A";
     gradeEl.classList.remove("pending");
     overallScoreBar.style.width = `${scorePercent}%`;
     overallScoreText.textContent = `${scorePercent}% overall readiness`;

@@ -145,7 +145,7 @@
                 <tr>
                   <td>{{ row.domain }}</td>
                   <td>{{ row.grade }}</td>
-                  <td>{{ "%.2f"|format(row.overall_score) }}</td>
+                  <td>{{ row.score_display }}</td>
                   <td>{{ row.completed_at }}</td>
                   <td><a class="subtle-link stats-link" href="/results/{{ row.scan_id }}">View</a></td>
                 </tr>

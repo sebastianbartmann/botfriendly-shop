@@ -60,6 +60,23 @@ class RobotsCheck(BaseCheck):
 
         status_code = robots_data.get("status_code")
         body = robots_data.get("text", "")
+        if self._is_unreachable_artifact(robots_data):
+            bot_states = {bot.name: "not_mentioned" for bot in AI_BOTS}
+            details = self._build_details(bot_states, status_code=status_code, reason="robots.txt unreachable")
+            signals = [
+                Signal(name=bot.name, value="not_mentioned", severity=Severity.INCONCLUSIVE, detail=f"{bot.operator} ({bot.tier})")
+                for bot in AI_BOTS
+            ]
+            signals.extend(self._summary_signals(details))
+            return CheckResult(
+                category="robots",
+                score=0.0,
+                severity=Severity.INCONCLUSIVE,
+                signals=signals,
+                details=details,
+                recommendations=[],
+            )
+
         if status_code != 200 or not isinstance(body, str):
             bot_states = {bot.name: "not_mentioned" for bot in AI_BOTS}
             details = self._build_details(bot_states, status_code=status_code, reason="robots.txt missing or unreadable")

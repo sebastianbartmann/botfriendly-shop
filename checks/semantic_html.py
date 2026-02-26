@@ -159,6 +159,12 @@ class SemanticHtmlCheck(BaseCheck):
             index = await self._fetch(url)
 
         status_code = index.get("status_code")
+        if self._is_unreachable_artifact(index):
+            return self._inconclusive_result(
+                category="semantic_html",
+                reason="Homepage HTML unreachable",
+                details={"status_code": status_code},
+            )
         html = index.get("text", "") if status_code == 200 else ""
 
         html_text = html if isinstance(html, str) else ""

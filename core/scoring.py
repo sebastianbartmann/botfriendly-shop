@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.models import CheckResult
+from core.models import CheckResult, Severity
 
 # Default weights for v1 — equal weights, can be tuned later
 CATEGORY_WEIGHTS = {
@@ -17,8 +17,8 @@ CATEGORY_WEIGHTS = {
 }
 
 
-def calculate_overall_score(check_results: list[CheckResult]) -> float:
-    """Weighted average of check scores. Returns 0.0-1.0."""
+def calculate_overall_score(check_results: list[CheckResult]) -> float | None:
+    """Weighted average of non-inconclusive check scores. Returns 0.0-1.0 or None if all are inconclusive."""
     if not check_results:
         return 0.0
 
@@ -27,17 +27,21 @@ def calculate_overall_score(check_results: list[CheckResult]) -> float:
     weighted_sum = 0.0
     total_weight = 0.0
     for result in check_results:
+        if result.severity == Severity.INCONCLUSIVE:
+            continue
         weight = CATEGORY_WEIGHTS.get(result.category, default_unknown_weight)
         weighted_sum += result.score * weight
         total_weight += weight
 
     if total_weight == 0:
-        return 0.0
+        return None
     return weighted_sum / total_weight
 
 
-def get_grade(score: float) -> str:
-    """A+ (0.9+), A (0.8+), B (0.65+), C (0.5+), D (0.35+), F (<0.35)."""
+def get_grade(score: float | None) -> str:
+    """A+ (0.9+), A (0.8+), B (0.65+), C (0.5+), D (0.35+), F (<0.35), N/A for inconclusive scans."""
+    if score is None:
+        return "N/A"
     if score >= 0.9:
         return "A+"
     if score >= 0.8:

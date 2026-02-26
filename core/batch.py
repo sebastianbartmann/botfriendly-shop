@@ -235,7 +235,7 @@ async def insert_scan_success(
                 status="complete",
                 error=None,
                 scanner_version=SCANNER_VERSION,
-                overall_score=float(result.overall_score),
+                overall_score=float(result.overall_score) if result.overall_score is not None else None,
                 grade=grade,
                 duration_ms=duration_ms,
                 result_json=serialize_result(result),

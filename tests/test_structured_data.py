@@ -125,7 +125,7 @@ async def test_structured_data_non_200_fetched_index_scores_zero(monkeypatch, fa
     result = await check.run("https://example.com", {})
 
     assert result.score == 0.0
-    assert result.severity == Severity.FAIL
+    assert result.severity == Severity.INCONCLUSIVE
 
 
 @pytest.mark.asyncio

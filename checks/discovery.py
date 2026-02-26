@@ -20,6 +20,7 @@ class DiscoveryCheck(BaseCheck):
 
     async def run(self, url: str, artifacts: dict) -> CheckResult:
         found_count = 0
+        evaluated_count = 0
         signals: list[Signal] = []
         details: dict[str, dict] = {}
 
@@ -32,20 +33,23 @@ class DiscoveryCheck(BaseCheck):
             status_code = response_data.get("status_code")
             content_type = response_data.get("content_type")
             final_url = response_data.get("final_url")
+            unreachable = self._is_unreachable_artifact(response_data)
             content_type_ok = self._is_expected_content_type(path, content_type)
             path_ok = self._is_expected_final_path(path, final_url)
-            exists = status_code == 200 and content_type_ok and path_ok
+            exists = status_code == 200 and content_type_ok and path_ok and not unreachable
             text = response_data.get("text", "") if exists else ""
             if exists:
                 found_count += 1
+            if not unreachable:
+                evaluated_count += 1
 
             preview = text[:120].replace("\n", " ").strip()
-            signal_value = "found" if exists else "not_found"
+            signal_value = "found" if exists else "unknown" if unreachable else "not_found"
             signals.append(
                 Signal(
                     name=path,
                     value=signal_value,
-                    severity=Severity.PASS if exists else Severity.FAIL,
+                    severity=Severity.PASS if exists else Severity.INCONCLUSIVE if unreachable else Severity.FAIL,
                     detail=preview,
                 )
             )
@@ -54,9 +58,17 @@ class DiscoveryCheck(BaseCheck):
                 "content_type": content_type,
                 "final_url": final_url,
                 "preview": preview,
+                "reachable": not unreachable,
             }
 
-        score = found_count / len(DISCOVERY_PATHS)
+        if evaluated_count == 0:
+            return self._inconclusive_result(
+                category="discovery",
+                reason="All discovery endpoints were unreachable",
+                details={"paths": details},
+            )
+
+        score = found_count / evaluated_count
         if score == 1.0:
             severity = Severity.PASS
         elif score == 0.0:

@@ -74,14 +74,17 @@ async def test_discovery_preview_truncated():
 
 
 @pytest.mark.asyncio
-async def test_discovery_500_treated_not_found():
+async def test_discovery_500_treated_as_inconclusive():
     check = DiscoveryCheck()
     artifacts = {path.lstrip("/"): _artifact(path, 500, "boom") for path in DISCOVERY_PATHS}
 
     result = await check.run("https://example.com", artifacts)
 
     assert result.score == 0.0
-    assert all(signal.value == "not_found" for signal in result.signals)
+    assert result.severity == Severity.INCONCLUSIVE
+    assert len(result.signals) == 1
+    assert result.signals[0].value == "inconclusive"
+    assert result.details["reason"] == "All discovery endpoints were unreachable"
 
 
 @pytest.mark.asyncio
@@ -149,12 +152,12 @@ async def test_discovery_404_and_503_treated_not_found():
 
     result = await check.run("https://example.com", artifacts)
 
-    assert all(signal.value == "not_found" for signal in result.signals)
+    assert [signal.value for signal in result.signals] == ["not_found", "unknown", "not_found"]
     assert result.score == 0.0
 
 
 @pytest.mark.asyncio
-async def test_discovery_fetch_error_status_none_treated_not_found():
+async def test_discovery_fetch_error_status_none_treated_as_inconclusive():
     check = DiscoveryCheck()
     artifacts = {
         path.lstrip("/"): {
@@ -168,7 +171,8 @@ async def test_discovery_fetch_error_status_none_treated_not_found():
 
     result = await check.run("https://example.com", artifacts)
 
-    assert all(signal.value == "not_found" for signal in result.signals)
+    assert result.severity == Severity.INCONCLUSIVE
+    assert result.details["reason"] == "All discovery endpoints were unreachable"
     assert result.score == 0.0
 
 

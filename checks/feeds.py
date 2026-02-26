@@ -16,7 +16,9 @@ class FeedsCheck(BaseCheck):
 
     async def run(self, url: str, artifacts: dict) -> CheckResult:
         found_paths: dict[str, bool] = {}
+        path_status: dict[str, str] = {}
         signals: list[Signal] = []
+        unreachable_paths = 0
 
         for path in FEED_PATHS:
             key = path.lstrip("/")
@@ -24,21 +26,33 @@ class FeedsCheck(BaseCheck):
             if response_data is None:
                 response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
 
+            unreachable = self._is_unreachable_artifact(response_data)
             content_type = response_data.get("content_type")
             is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
-            exists = response_data.get("status_code") == 200 and not is_html_response
+            exists = response_data.get("status_code") == 200 and not is_html_response and not unreachable
             found_paths[path] = exists
+            path_status[path] = "found" if exists else "unknown" if unreachable else "not_found"
+            if unreachable:
+                unreachable_paths += 1
             signals.append(
                 Signal(
                     name=f"path:{path}",
-                    value="found" if exists else "not_found",
-                    severity=Severity.PASS if exists else Severity.FAIL,
+                    value=path_status[path],
+                    severity=Severity.PASS if exists else Severity.INCONCLUSIVE if unreachable else Severity.FAIL,
                 )
             )
 
         index = artifacts.get("index")
         if index is None:
             index = await self._fetch(urljoin(url.rstrip("/") + "/", ""))
+        index_unreachable = self._is_unreachable_artifact(index)
+
+        if index_unreachable and unreachable_paths == len(FEED_PATHS):
+            return self._inconclusive_result(
+                category="feeds",
+                reason="Feed endpoints and homepage HTML were unreachable",
+                details={"found_paths": found_paths, "path_status": path_status},
+            )
 
         html = index.get("text", "") if index.get("status_code") == 200 else ""
         parser = parse_html_features(html)
@@ -93,6 +107,7 @@ class FeedsCheck(BaseCheck):
             signals=signals,
             details={
                 "found_paths": found_paths,
+                "path_status": path_status,
                 "alternate_feed_hrefs": feed_hrefs,
                 "google_shopping_hint": has_google_shopping_hint,
             },

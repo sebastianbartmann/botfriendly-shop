@@ -205,7 +205,7 @@ async def _upsert_scan_check(scan_id: str, event: dict[str, Any]) -> None:
         await session.commit()
 
 
-async def _complete_scan(scan_id: str, overall_score: float, grade: str, duration_ms: int, result_payload: dict[str, Any]) -> None:
+async def _complete_scan(scan_id: str, overall_score: float | None, grade: str, duration_ms: int, result_payload: dict[str, Any]) -> None:
     await _update_scan(
         scan_id,
         {
@@ -372,10 +372,10 @@ async def _run_web_scan(scan_id: str, url: str) -> None:
         scans[scan_id]["grade"] = grade
         await _complete_scan(scan_id, overall_score, grade, duration_ms, scan_result_payload)
         logger.info(
-            "scan_completed scan_id=%s source=web url=%s score=%.4f grade=%s duration_ms=%d",
+            "scan_completed scan_id=%s source=web url=%s score=%s grade=%s duration_ms=%d",
             scan_id,
             url,
-            overall_score,
+            f"{overall_score:.4f}" if overall_score is not None else "n/a",
             grade,
             duration_ms,
         )
@@ -535,6 +535,7 @@ async def stats_page(request: Request):
                     FROM scan_checks sc
                     INNER JOIN scans s ON s.id = sc.scan_id
                     WHERE s.status = 'complete'
+                      AND LOWER(COALESCE(sc.severity, '')) != 'inconclusive'
                     GROUP BY sc.category
                     """
                 )
@@ -610,7 +611,8 @@ async def stats_page(request: Request):
                 "scan_id": row.id,
                 "domain": row.domain,
                 "grade": row.grade or "N/A",
-                "overall_score": float(row.overall_score or 0.0),
+                "overall_score": float(row.overall_score) if row.overall_score is not None else None,
+                "score_display": f"{float(row.overall_score):.2f}" if row.overall_score is not None else "N/A",
                 "completed_at": row.completed_at or "",
             }
             for row in recent_rows
@@ -867,10 +869,10 @@ async def scan_json(
         }
         await _complete_scan(scan_id, overall_score, grade, duration_ms, payload)
         logger.info(
-            "scan_completed scan_id=%s source=api url=%s score=%.4f grade=%s duration_ms=%d",
+            "scan_completed scan_id=%s source=api url=%s score=%s grade=%s duration_ms=%d",
             scan_id,
             normalized_url,
-            overall_score,
+            f"{overall_score:.4f}" if overall_score is not None else "n/a",
             grade,
             duration_ms,
         )

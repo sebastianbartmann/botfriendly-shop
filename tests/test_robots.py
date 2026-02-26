@@ -109,7 +109,7 @@ async def test_robots_fetch_error_status_none_marks_all_not_mentioned():
     result = await check.run("https://example.com", artifacts)
 
     assert result.score == 0.0
-    assert result.severity == Severity.FAIL
+    assert result.severity == Severity.INCONCLUSIVE
     bot_signals = [s for s in result.signals if not s.name.startswith("tier:") and not s.name.startswith("overall:")]
     assert all(signal.value == "not_mentioned" for signal in bot_signals)
 

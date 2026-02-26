@@ -19,13 +19,16 @@ class APISurfaceCheck(BaseCheck):
     async def run(self, url: str, artifacts: dict) -> CheckResult:
         spec_found: dict[str, bool] = {}
         api_found: dict[str, bool] = {}
+        probe_status: dict[str, str] = {}
         signals: list[Signal] = []
+        unreachable_probes = 0
 
         for path in SPEC_PATHS:
             key = path.lstrip("/")
             response_data = artifacts.get(key)
             if response_data is None:
                 response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
+            unreachable = self._is_unreachable_artifact(response_data)
             content_type = response_data.get("content_type")
             is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
             should_check_content_type = path in {"/openapi.json", "/swagger.json"}
@@ -34,32 +37,76 @@ class APISurfaceCheck(BaseCheck):
                 is_docs_redirect_valid = self._path_contains_any(response_data.get("final_url"), {"api-docs", "api", "docs"})
             exists = (
                 response_data.get("status_code") == 200
+                and not unreachable
                 and not (should_check_content_type and is_html_response)
                 and is_docs_redirect_valid
             )
             spec_found[path] = exists
-            signals.append(Signal(name=f"spec:{path}", value=exists, severity=Severity.PASS if exists else Severity.FAIL))
+            probe_status[f"spec:{path}"] = "found" if exists else "unknown" if unreachable else "not_found"
+            if unreachable:
+                unreachable_probes += 1
+            signals.append(
+                Signal(
+                    name=f"spec:{path}",
+                    value=exists if not unreachable else "unknown",
+                    severity=Severity.PASS if exists else Severity.INCONCLUSIVE if unreachable else Severity.FAIL,
+                )
+            )
 
         for path in API_PATHS:
             key = path.lstrip("/")
             response_data = artifacts.get(key)
             if response_data is None:
                 response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
+            unreachable = self._is_unreachable_artifact(response_data)
             content_type = response_data.get("content_type")
             is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
-            exists = response_data.get("status_code") == 200 and not is_html_response
+            exists = response_data.get("status_code") == 200 and not is_html_response and not unreachable
             api_found[path] = exists
-            signals.append(Signal(name=f"endpoint:{path}", value=exists, severity=Severity.PASS if exists else Severity.INCONCLUSIVE))
+            probe_status[f"endpoint:{path}"] = "found" if exists else "unknown" if unreachable else "not_found"
+            if unreachable:
+                unreachable_probes += 1
+            signals.append(
+                Signal(
+                    name=f"endpoint:{path}",
+                    value=exists if not unreachable else "unknown",
+                    severity=Severity.PASS if exists else Severity.INCONCLUSIVE,
+                )
+            )
 
         graphql = await self._fetch_options(urljoin(url.rstrip("/") + "/", GRAPHQL_PATH.lstrip("/")))
-        graphql_enabled = graphql.get("status_code") in {200, 204, 400, 405} and self._path_contains_any(
+        graphql_unreachable = self._is_unreachable_artifact(graphql)
+        graphql_enabled = (not graphql_unreachable) and graphql.get("status_code") in {200, 204, 400, 405} and self._path_contains_any(
             graphql.get("final_url"), {"graphql"}
         )
-        signals.append(Signal(name="endpoint:/graphql_options", value=graphql_enabled, severity=Severity.PASS if graphql_enabled else Severity.INCONCLUSIVE))
+        probe_status["endpoint:/graphql_options"] = "found" if graphql_enabled else "unknown" if graphql_unreachable else "not_found"
+        if graphql_unreachable:
+            unreachable_probes += 1
+        signals.append(
+            Signal(
+                name="endpoint:/graphql_options",
+                value=graphql_enabled if not graphql_unreachable else "unknown",
+                severity=Severity.PASS if graphql_enabled else Severity.INCONCLUSIVE,
+            )
+        )
 
         index = artifacts.get("index")
         if index is None:
             index = await self._fetch(urljoin(url.rstrip("/") + "/", ""))
+        index_unreachable = self._is_unreachable_artifact(index)
+
+        total_probes = len(SPEC_PATHS) + len(API_PATHS) + 1
+        if index_unreachable and unreachable_probes == total_probes:
+            return self._inconclusive_result(
+                category="api_surface",
+                reason="API probes and homepage HTML were unreachable",
+                details={
+                    "spec_found": spec_found,
+                    "api_found": api_found,
+                    "probe_status": probe_status,
+                    "graphql_options_status": graphql.get("status_code"),
+                },
+            )
 
         html = index.get("text", "") if index.get("status_code") == 200 else ""
         parser = parse_html_features(html)
@@ -89,6 +136,7 @@ class APISurfaceCheck(BaseCheck):
             details={
                 "spec_found": spec_found,
                 "api_found": api_found,
+                "probe_status": probe_status,
                 "graphql_options_status": graphql.get("status_code"),
                 "doc_links": doc_links,
             },
