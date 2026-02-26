@@ -48,7 +48,7 @@ ENV/
 *.swo
 
 # Project data
-data/
-!data/ecom_urls.txt
-!data/default_urls.txt
+data/*.db
+data/results/
+# (ecom_urls.txt and default_urls.txt are tracked)
 *.duckdb
