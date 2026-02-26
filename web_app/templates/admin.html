@@ -31,7 +31,7 @@
     .url-list-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .45rem; }
     .url-list-header label { color: var(--text-secondary); font-size: .9rem; font-weight: 700; }
     #load-defaults-btn { padding: .42rem .65rem; font-size: .82rem; }
-    #load-defaults-status { margin-top: .4rem; color: var(--muted); font-size: .82rem; min-height: 1.2em; }
+    #load-status { margin-top: .4rem; color: var(--muted); font-size: .82rem; min-height: 1.2em; }
     .tooltip-wrap { position: relative; display: inline-flex; align-items: center; margin-left: .15rem; }
     .tooltip-icon {
       width: 1rem;
@@ -212,7 +212,7 @@
             <button type="button" id="load-defaults-btn" class="btn-secondary">Load default URLs (~500)</button>
           </div>
           <textarea id="url-list" name="urls" rows="20">{{ url_list }}</textarea>
-          <div id="load-defaults-status" aria-live="polite"></div>
+          <div id="load-status" aria-live="polite"></div>
           <div class="form-row">
             <label class="inline-field" for="concurrency">Concurrency
               <input type="number" id="concurrency" name="concurrency" value="5" min="1" max="10" />
@@ -344,23 +344,21 @@
     }
 
     async function loadDefaults() {
-      const status = document.getElementById("load-defaults-status");
-      const textarea = document.getElementById("url-list");
-      status.textContent = "Loading default URLs...";
+      const btn = document.getElementById("load-defaults-btn");
+      const status = document.getElementById("load-status");
+      btn.disabled = true;
+      status.textContent = "Loading...";
       try {
-        const response = await fetch("/admin/default-urls");
-        if (!response.ok) {
-          throw new Error("request failed");
-        }
-        const text = await response.text();
-        textarea.value = text;
-        const urlCount = text
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line && !line.startsWith("#")).length;
-        status.textContent = "Loaded " + urlCount + " URLs";
-      } catch {
-        status.textContent = "Failed to load default URLs";
+        const resp = await fetch("/admin/default-urls");
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const text = await resp.text();
+        document.getElementById("url-list").value = text;
+        const count = text.split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).length;
+        status.textContent = "Loaded " + count + " URLs";
+      } catch (e) {
+        status.textContent = "Error: " + e.message;
+      } finally {
+        btn.disabled = false;
       }
     }
 

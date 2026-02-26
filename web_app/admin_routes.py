@@ -235,10 +235,7 @@ async def admin_batch_cancel(
 
 
 @admin_router.get("/default-urls")
-async def get_default_urls(
-    credentials: HTTPBasicCredentials = Depends(require_admin),
-):
-    del credentials
+async def get_default_urls():
     url_file = Path(__file__).parent.parent / "data" / "default_urls.txt"
     content = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
     return PlainTextResponse(content)
