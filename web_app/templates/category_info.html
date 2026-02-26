@@ -1,71 +1,129 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Detailed explanation of botfriendly.shop scan category metrics." />
-  <meta property="og:title" content="{{ category_label }} — botfriendly.shop" />
-  <meta property="og:description" content="Understand what each category detail means and how to interpret scan outputs." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://botfriendly.shop" />
-  <title>{{ category_label }} Details — botfriendly.shop</title>
-  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <main class="container">
-    <nav class="top-nav card">
-      <a href="/">Home</a>
-      <a href="/stats">Stats</a>
-      <a href="/bots">Bots</a>
-    </nav>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Detailed explanation of botfriendly.shop scan category metrics."
+    />
+    <meta
+      property="og:title"
+      content="{{ category_label }} — botfriendly.shop"
+    />
+    <meta
+      property="og:description"
+      content="Understand what each category detail means and how to interpret scan outputs."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://botfriendly.shop" />
+    <title>{{ category_label }} Details — botfriendly.shop</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <nav class="top-nav card">
+        <a href="/">Home</a>
+        <a href="/stats">Stats</a>
+        <a href="/bots">Bots</a>
+      </nav>
 
-    <header class="results-header card">
-      <h1>{{ category_label }}</h1>
-      <a class="secondary-link" href="/">Scan another site</a>
-    </header>
+      <header class="results-header card">
+        <h1>{{ category_label }}</h1>
+        <a class="secondary-link" href="/">Scan another site</a>
+      </header>
 
-    <section class="card">
-      <h2>What This Check Covers</h2>
-      <p class="subheadline">{{ overview }}</p>
-    </section>
+      <section class="card">
+        <h2>What This Check Covers</h2>
+        <p class="subheadline">{{ overview }}</p>
+      </section>
 
-    <section class="card">
-      <h2>Field Guide</h2>
-      <div class="table-wrap">
-        <table class="field-table">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Meaning</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for field in fields %}
+      {% if faqs %}
+      <section class="card">
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-list">
+          {% for faq in faqs %}
+          <div class="faq-item">
+            <dt>{{ faq.q }}</dt>
+            <dd>{{ faq.a }}</dd>
+          </div>
+          {% endfor %}
+        </dl>
+      </section>
+      {% endif %} {% if comparison %}
+      <section class="card">
+        <h2>{{ comparison.title }}</h2>
+        <div class="table-wrap">
+          <table class="bots-table">
+            <thead>
+              <tr>
+                {% for header in comparison.headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in comparison.rows %}
+              <tr>
+                {% for cell in row %}
+                <td>{{ cell }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %} {% if checklist %}
+      <section class="card">
+        <h2>Implementation Checklist</h2>
+        <ul class="checks-list">
+          {% for item in checklist %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      <section class="card">
+        <h2>Field Guide</h2>
+        <div class="table-wrap">
+          <table class="field-table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for field in fields %}
               <tr>
                 <td><code>{{ field.name }}</code></td>
                 <td>{{ field.meaning }}</td>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>Other Categories</h2>
-      <div class="category-links">
-        {% for item in categories %}
-          {% if item.key == category %}
-            <span class="signal-pill">{{ item.label }}</span>
+      <section class="card">
+        <h2>Other Categories</h2>
+        <div class="category-links">
+          {% for item in categories %} {% if item.key == category %}
+          <span class="active-pill">{{ item.label }}</span>
           {% else %}
-            <a class="subtle-link" href="/results/info/{{ item.key }}">{{ item.label }}</a>
-          {% endif %}
-        {% endfor %}
-      </div>
-    </section>
-  </main>
+          <a class="subtle-link" href="/results/info/{{ item.key }}"
+            >{{ item.label }}</a
+          >
+          {% endif %} {% endfor %}
+        </div>
+      </section>
+    </main>
 
-  <footer class="site-footer">botfriendly.shop · built by Sebastian Bartmann</footer>
-</body>
+    <footer class="site-footer">
+      botfriendly.shop · built by Sebastian Bartmann
+    </footer>
+  </body>
 </html>

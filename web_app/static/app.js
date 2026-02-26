@@ -36,7 +36,9 @@
   }
 
   function categoryLabel(category, fallback) {
-    return fallback || context.labels[category] || category.replaceAll("_", " ");
+    return (
+      fallback || context.labels[category] || category.replaceAll("_", " ")
+    );
   }
 
   function makeList(items, emptyText) {
@@ -74,7 +76,7 @@
         `<li><span class="tier-label">${label}:</span> ` +
           `<span class="signal-pass">${allowed}/${total} allowed</span> ` +
           `<span class="signal-fail">${blocked} blocked</span> ` +
-          `<span class="signal-muted">${notMentioned} not mentioned</span></li>`
+          `<span class="signal-muted">${notMentioned} not mentioned</span></li>`,
       );
     });
 
@@ -85,7 +87,9 @@
     const blockedLine = blockedOperators.length
       ? `<span class="signal-fail">${blockedOperators.map((operator) => escapeHtml(operator)).join(", ")}</span>`
       : `<span class="signal-pass">None</span>`;
-    tierRows.push(`<li><span class="tier-label">Blocked operators:</span> ${blockedLine}</li>`);
+    tierRows.push(
+      `<li><span class="tier-label">Blocked operators:</span> ${blockedLine}</li>`,
+    );
     return tierRows.join("");
   }
 
@@ -100,19 +104,31 @@
         `Coverage: ${overall.allowed || 0}/${total || 0} bots allowed`,
         `Blocked bots: ${overall.blocked || 0}`,
         `Not mentioned: ${overall.not_mentioned || 0}`,
-        details.status_code ? `robots.txt status: ${details.status_code}` : "robots.txt status unavailable",
+        details.status_code
+          ? `robots.txt status: ${details.status_code}`
+          : "robots.txt status unavailable",
       ];
     }
 
     if (category === "discovery") {
       const paths = details.paths || details;
-      const entries = Object.entries(paths).filter(([, value]) => value && typeof value === "object");
-      const reachable = entries.filter(([, value]) => value.reachable !== false).length;
-      const found = entries.filter(([, value]) => Number(value.status_code) === 200).length;
+      const entries = Object.entries(paths).filter(
+        ([, value]) => value && typeof value === "object",
+      );
+      const reachable = entries.filter(
+        ([, value]) => value.reachable !== false,
+      ).length;
+      const found = entries.filter(
+        ([, value]) => Number(value.status_code) === 200,
+      ).length;
       return [
         `Discovery files found: ${found}/${entries.length}`,
         `Reachable endpoints: ${reachable}/${entries.length}`,
-        ...entries.slice(0, 3).map(([path, value]) => `${path}: status ${value.status_code ?? "n/a"}`),
+        ...entries
+          .slice(0, 3)
+          .map(
+            ([path, value]) => `${path}: status ${value.status_code ?? "n/a"}`,
+          ),
       ];
     }
 
@@ -211,7 +227,10 @@
     }
 
     return (payload.signals || []).map((sig) => {
-      const value = typeof sig.value === "object" ? JSON.stringify(sig.value) : String(sig.value);
+      const value =
+        typeof sig.value === "object"
+          ? JSON.stringify(sig.value)
+          : String(sig.value);
       return `${sig.name}: ${value}`;
     });
   }
@@ -226,17 +245,22 @@
         ? renderRobotsSignals(payload)
         : makeList(
             (payload.signals || []).slice(0, 3).map((sig) => {
-              const value = typeof sig.value === "object" ? JSON.stringify(sig.value) : String(sig.value);
+              const value =
+                typeof sig.value === "object"
+                  ? JSON.stringify(sig.value)
+                  : String(sig.value);
               return `${sig.name}: ${value}`;
             }),
-            "No signal details provided"
+            "No signal details provided",
           );
 
     const details = summarizeDetails(payload);
     const detailsList = makeList(details, "No details available");
 
     const robotsTotal =
-      payload.details && payload.details.overall && Number(payload.details.overall.total)
+      payload.details &&
+      payload.details.overall &&
+      Number(payload.details.overall.total)
         ? Number(payload.details.overall.total)
         : 23;
 
@@ -256,13 +280,22 @@
       <div class="tiny-track">
         <div class="tiny-fill" style="background: ${severityColor[severity]}; width: 0%;"></div>
       </div>
-      <p class="list-label">Details</p>
-      <ul class="detail-list">${detailsList}</ul>
-      <p class="list-label">Signals</p>
-      <ul class="signal-list">${signals}</ul>
-      ${infoCta}
-      ${botsCta}
-      <ul class="reco-list">${makeList(payload.recommendations || [], "No recommendations")}</ul>
+      <div class="card-section">
+        <p class="list-label">Details</p>
+        <ul class="detail-list">${detailsList}</ul>
+      </div>
+      <div class="card-section">
+        <p class="list-label">Signals</p>
+        <ul class="signal-list">${signals}</ul>
+      </div>
+      <div class="card-section">
+        <p class="list-label">Recommendations</p>
+        <ul class="reco-list">${makeList(payload.recommendations || [], "No recommendations")}</ul>
+      </div>
+      <div class="card-actions">
+        ${infoCta}
+        ${botsCta}
+      </div>
     `;
     checkGrid.appendChild(card);
 
@@ -279,7 +312,8 @@
       gradeEl.textContent = grade || "N/A";
       gradeEl.classList.remove("pending");
       overallScoreBar.style.width = "0%";
-      overallScoreText.textContent = "Inconclusive (could not fetch enough data)";
+      overallScoreText.textContent =
+        "Inconclusive (could not fetch enough data)";
       return;
     }
     const normalized = clampScore(score);
@@ -324,7 +358,9 @@
   }
 
   if (context.preloadedComplete) {
-    (context.preloadedResults || []).forEach((eventPayload) => renderCheckCard(eventPayload));
+    (context.preloadedResults || []).forEach((eventPayload) =>
+      renderCheckCard(eventPayload),
+    );
     updateOverall(context.preloadedOverall, context.preloadedGrade);
     loadingState.classList.add("hidden");
     return;

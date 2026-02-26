@@ -1,58 +1,166 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Check how ready your ecommerce site is for AI agents, crawlers, and bots. Free scan with actionable recommendations." />
-  <meta property="og:title" content="botfriendly.shop — Is your shop ready for AI?" />
-  <meta property="og:description" content="Scan your ecommerce site and get an AI-readiness score. Find gaps in structured data, robots.txt, sitemaps, and more." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://botfriendly.shop" />
-  <title>botfriendly — Is your shop ready for AI?</title>
-  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <main class="container">
-    <nav class="top-nav card">
-      <a href="/" class="is-active">Home</a>
-      <a href="/stats">Stats</a>
-      <a href="/bots">Bots</a>
-    </nav>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Check how ready your ecommerce site is for AI agents, crawlers, and bots. Free scan with actionable recommendations."
+    />
+    <meta
+      property="og:title"
+      content="botfriendly.shop — Is your shop ready for AI?"
+    />
+    <meta
+      property="og:description"
+      content="Scan your ecommerce site and get an AI-readiness score. Find gaps in structured data, robots.txt, sitemaps, and more."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://botfriendly.shop" />
+    <title>botfriendly — Is your shop ready for AI?</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <nav class="top-nav card">
+        <a href="/" class="is-active">Home</a>
+        <a href="/stats">Stats</a>
+        <a href="/bots">Bots</a>
+      </nav>
 
-    <section class="card hero">
-      <h1><span class="brand">botfriendly<span class="brand-dot">.</span>shop</span></h1>
-      <p class="subheadline">Check how ready your ecommerce site is for AI agents, crawlers, and bots. Get a score, find gaps, fix them.</p>
+      <section class="card hero">
+        <h1>
+          <span class="brand"
+            >botfriendly<span class="brand-dot">.</span>shop</span
+          >
+        </h1>
+        <p class="subheadline">
+          Discover exactly how AI shopping agents, search indexers, and crawlers
+          see your ecommerce site. Get your score, find the gaps, and optimize
+          for AI discovery.
+        </p>
 
-      <form class="scan-form" action="/scan" method="post">
-        <label for="url">Enter a URL</label>
-        <div class="form-row">
-          <input id="url" name="url" type="text" placeholder="e.g. example.com" required value="{{ url or '' }}" />
-          <button type="submit">Scan</button>
-        </div>
-        {% if error %}
+        <form class="scan-form" action="/scan" method="post">
+          <label for="url">Enter a URL to scan your store</label>
+          <div class="form-row">
+            <input
+              id="url"
+              name="url"
+              type="text"
+              placeholder="e.g. yourstore.com"
+              required
+              value="{{ url or '' }}"
+            />
+            <button type="submit">Scan Now</button>
+          </div>
+          {% if error %}
           <p class="error">{{ error }}</p>
-        {% endif %}
-      </form>
-    </section>
+          {% endif %}
+        </form>
+      </section>
 
-    <section class="card">
-      <h2>What we check</h2>
-      <ul class="checks-list">
-        <li>Robots.txt AI bot access policies</li>
-        <li>AI discovery files (llms.txt, well-known endpoints)</li>
-        <li>Sitemap availability and freshness</li>
-        <li>Structured data coverage (Schema.org, OpenGraph)</li>
-        <li>SEO metadata basics</li>
-        <li>Product feed availability</li>
-        <li>API surface discoverability</li>
-        <li>Product parseability for agents</li>
-        <li>Semantic HTML best practices</li>
-        <li>Accessibility best practices</li>
-      </ul>
-    </section>
-  </main>
+      <section class="home-grid">
+        <div class="card home-feature">
+          <h3>Why Optimize for AI?</h3>
+          <p class="text-secondary">
+            Traditional search is evolving into AI-assisted shopping. Agents
+            like ChatGPT, Claude, and Perplexity actively browse the web to find
+            and recommend products. If your site isn't technically prepared, AI
+            bots will skip your products entirely.
+          </p>
+        </div>
+        <div class="card home-feature">
+          <h3>How the Scan Works</h3>
+          <p class="text-secondary">
+            We simulate the behavior of modern AI agents. We analyze your
+            <code>robots.txt</code>, look for machine-readable discovery files,
+            validate your structured JSON-LD data, and check if your HTML
+            semantics enable accurate extraction.
+          </p>
+        </div>
+      </section>
 
-  <footer class="site-footer">botfriendly.shop · built by Sebastian Bartmann</footer>
-</body>
+      <section class="card">
+        <h2>What We Check</h2>
+        <p class="subheadline">
+          Our real-time engine runs a comprehensive technical audit tailored for
+          machine parseability.
+        </p>
+        <div class="category-grid">
+          <a href="/results/info/robots" class="category-card-link">
+            <h4>🤖 Robots Policies</h4>
+            <p>Access rules for top AI crawlers and shopping agents.</p>
+          </a>
+          <a href="/results/info/discovery" class="category-card-link">
+            <h4>📄 AI Discovery Files</h4>
+            <p>Presence of llms.txt and well-known endpoints.</p>
+          </a>
+          <a href="/results/info/sitemap" class="category-card-link">
+            <h4>🗺️ Sitemap Quality</h4>
+            <p>Structure and accurate lastmod signals for fast indexing.</p>
+          </a>
+          <a href="/results/info/structured_data" class="category-card-link">
+            <h4>📦 Structured Data</h4>
+            <p>JSON-LD and OpenGraph product facts extraction.</p>
+          </a>
+          <a href="/results/info/seo_meta" class="category-card-link">
+            <h4>🔍 SEO Metadata</h4>
+            <p>Core metadata elements used as fallbacks by AI.</p>
+          </a>
+          <a
+            href="/results/info/product_parseability"
+            class="category-card-link"
+          >
+            <h4>🛒 Product Parseability</h4>
+            <p>Confidence checks across schema, meta, and HTML.</p>
+          </a>
+          <a href="/results/info/semantic_html" class="category-card-link">
+            <h4>🏗️ Semantic HTML</h4>
+            <p>Page structure that survives CSS/JS stripping.</p>
+          </a>
+          <a href="/results/info/accessibility" class="category-card-link">
+            <h4>♿ Accessibility</h4>
+            <p>Labels, landmarks, and alt texts critical for bots.</p>
+          </a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-list">
+          <div class="faq-item">
+            <dt>What is AI Optimization (AIO)?</dt>
+            <dd>
+              It's the process of structuring your website so that Large
+              Language Models (LLMs) and AI agents can accurately read,
+              understand, and recommend your content or products to end-users.
+            </dd>
+          </div>
+          <div class="faq-item">
+            <dt>Is this different from traditional SEO?</dt>
+            <dd>
+              Yes. While SEO focuses on ranking pages for human searchers on
+              Google, AIO focuses on providing perfect, structured,
+              machine-readable facts (like exact pricing, stock, and specs)
+              directly to an AI agent without relying on visual layouts.
+            </dd>
+          </div>
+          <div class="faq-item">
+            <dt>Why did my site get a low score?</dt>
+            <dd>
+              You may be accidentally blocking AI bots in your robots.txt,
+              lacking a machine-readable <code>llms.txt</code> file, or having
+              mismatched pricing data between your visible HTML and your backend
+              JSON-LD schema.
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      botfriendly.shop · built by Sebastian Bartmann
+    </footer>
+  </body>
 </html>
