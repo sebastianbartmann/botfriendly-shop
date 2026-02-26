@@ -49,4 +49,6 @@ ENV/
 
 # Project data
 data/
+!data/ecom_urls.txt
+!data/default_urls.txt
 *.duckdb
