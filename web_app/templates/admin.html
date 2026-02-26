@@ -32,43 +32,38 @@
     .url-list-header label { color: var(--text-secondary); font-size: .9rem; font-weight: 700; }
     #load-defaults-btn { padding: .42rem .65rem; font-size: .82rem; }
     #load-status { margin-top: .4rem; color: var(--muted); font-size: .82rem; min-height: 1.2em; }
-    .tooltip-wrap { position: relative; display: inline-flex; align-items: center; margin-left: .15rem; }
-    .tooltip-icon {
-      width: 1rem;
-      height: 1rem;
-      border: 1px solid var(--border-strong);
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: .72rem;
-      line-height: 1;
-      color: var(--muted);
+    .info-icon {
+      position: relative;
       cursor: help;
-      user-select: none;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-left: 0.25rem;
+      display: inline-block;
     }
-    .tooltip-text {
-      position: absolute;
-      left: 50%;
-      bottom: calc(100% + 8px);
-      transform: translateX(-50%);
-      background: #151d16;
-      color: var(--text);
-      border: 1px solid var(--border-strong);
-      border-radius: 6px;
-      padding: .48rem .56rem;
-      min-width: 260px;
-      max-width: 360px;
-      font-size: .75rem;
-      line-height: 1.35;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-      opacity: 0;
+    .info-icon .tooltip-text {
       visibility: hidden;
-      transition: opacity .12s ease;
+      opacity: 0;
+      position: absolute;
+      bottom: 130%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #f1f5f9;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      width: 230px;
+      z-index: 1000;
+      transition: opacity 0.15s ease;
       pointer-events: none;
-      z-index: 20;
+      white-space: normal;
     }
-    .tooltip-wrap:hover .tooltip-text { opacity: 1; visibility: visible; }
+    .info-icon:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
     .inline-field input[type=number] {
       width: 80px;
       background: var(--bg);
@@ -220,16 +215,16 @@
             <label class="inline-field">
               <input type="checkbox" name="force" />
               Force re-scan
-              <span class="tooltip-wrap" aria-hidden="true">
-                <span class="tooltip-icon">ⓘ</span>
+              <span class="info-icon" aria-hidden="true">
+                ⓘ
                 <span class="tooltip-text">Re-scan all URLs even if a fresh result exists in the database (ignores 24h cache)</span>
               </span>
             </label>
             <label class="inline-field">
               <input type="checkbox" name="stale_only" />
               Stale only
-              <span class="tooltip-wrap" aria-hidden="true">
-                <span class="tooltip-icon">ⓘ</span>
+              <span class="info-icon" aria-hidden="true">
+                ⓘ
                 <span class="tooltip-text">Only scan URLs whose last result is older than 24 hours - skips recently scanned domains</span>
               </span>
             </label>
@@ -255,6 +250,7 @@
   <footer class="site-footer">botfriendly.shop · built by Sebastian Bartmann</footer>
 
   <script>
+    const DEFAULT_URLS = {{ default_url_list | tojson }};
     let eventSource = null;
 
     function appendLog(line) {
@@ -346,20 +342,10 @@
     async function loadDefaults() {
       const btn = document.getElementById("load-defaults-btn");
       const status = document.getElementById("load-status");
-      btn.disabled = true;
-      status.textContent = "Loading...";
-      try {
-        const resp = await fetch("/admin/default-urls");
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
-        const text = await resp.text();
-        document.getElementById("url-list").value = text;
-        const count = text.split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).length;
-        status.textContent = "Loaded " + count + " URLs";
-      } catch (e) {
-        status.textContent = "Error: " + e.message;
-      } finally {
-        btn.disabled = false;
-      }
+      if (!DEFAULT_URLS) { status.textContent = "No default list found"; return; }
+      document.getElementById("url-list").value = DEFAULT_URLS;
+      const count = DEFAULT_URLS.split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).length;
+      status.textContent = "Loaded " + count + " URLs";
     }
 
     document.addEventListener("DOMContentLoaded", () => {

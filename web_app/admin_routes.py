@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
@@ -91,6 +91,8 @@ async def admin_page(
 
     url_file = Path(__file__).parent.parent / "data" / "ecom_urls.txt"
     url_list = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
+    default_url_file = Path(__file__).parent.parent / "data" / "default_urls.txt"
+    default_url_list = default_url_file.read_text(encoding="utf-8") if default_url_file.exists() else ""
 
     db_stats = _default_db_stats()
 
@@ -147,6 +149,7 @@ async def admin_page(
             "request": request,
             "db_stats": db_stats,
             "url_list": url_list,
+            "default_url_list": default_url_list,
             "batch_running": batch_running,
             "batch_summary": _batch_summary,
         },
@@ -233,9 +236,3 @@ async def admin_batch_cancel(
         _cancel_token.set()
     return JSONResponse({"status": "cancelling"})
 
-
-@admin_router.get("/default-urls")
-async def get_default_urls():
-    url_file = Path(__file__).parent.parent / "data" / "default_urls.txt"
-    content = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
-    return PlainTextResponse(content)
