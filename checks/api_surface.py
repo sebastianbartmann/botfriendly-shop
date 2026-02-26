@@ -8,8 +8,7 @@ from checks.base import BaseCheck
 from checks.html_extract import parse_html_features
 from core.models import CheckResult, Severity, Signal
 
-SPEC_PATHS = ["/openapi.json", "/swagger.json", "/api-docs"]
-API_PATHS = ["/api/v1", "/api/v2"]
+SPEC_PATHS = ["/openapi.json", "/openapi.yaml", "/swagger.json", "/swagger.yaml", "/api-docs"]
 GRAPHQL_PATH = "/graphql"
 
 
@@ -18,7 +17,6 @@ class APISurfaceCheck(BaseCheck):
 
     async def run(self, url: str, artifacts: dict) -> CheckResult:
         spec_found: dict[str, bool] = {}
-        api_found: dict[str, bool] = {}
         probe_status: dict[str, str] = {}
         signals: list[Signal] = []
         unreachable_probes = 0
@@ -31,14 +29,15 @@ class APISurfaceCheck(BaseCheck):
             unreachable = self._is_unreachable_artifact(response_data)
             content_type = response_data.get("content_type")
             is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
-            should_check_content_type = path in {"/openapi.json", "/swagger.json"}
+            should_check_content_type = path.endswith(".json") or path.endswith(".yaml")
+            content_type_ok = self._is_expected_spec_content_type(path, content_type)
             is_docs_redirect_valid = True
             if path == "/api-docs" and response_data.get("status_code") == 200:
                 is_docs_redirect_valid = self._path_contains_any(response_data.get("final_url"), {"api-docs", "api", "docs"})
             exists = (
                 response_data.get("status_code") == 200
                 and not unreachable
-                and not (should_check_content_type and is_html_response)
+                and not (should_check_content_type and (is_html_response or not content_type_ok))
                 and is_docs_redirect_valid
             )
             spec_found[path] = exists
@@ -50,27 +49,6 @@ class APISurfaceCheck(BaseCheck):
                     name=f"spec:{path}",
                     value=exists if not unreachable else "unknown",
                     severity=Severity.PASS if exists else Severity.INCONCLUSIVE if unreachable else Severity.FAIL,
-                )
-            )
-
-        for path in API_PATHS:
-            key = path.lstrip("/")
-            response_data = artifacts.get(key)
-            if response_data is None:
-                response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
-            unreachable = self._is_unreachable_artifact(response_data)
-            content_type = response_data.get("content_type")
-            is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
-            exists = response_data.get("status_code") == 200 and not is_html_response and not unreachable
-            api_found[path] = exists
-            probe_status[f"endpoint:{path}"] = "found" if exists else "unknown" if unreachable else "not_found"
-            if unreachable:
-                unreachable_probes += 1
-            signals.append(
-                Signal(
-                    name=f"endpoint:{path}",
-                    value=exists if not unreachable else "unknown",
-                    severity=Severity.PASS if exists else Severity.INCONCLUSIVE,
                 )
             )
 
@@ -95,14 +73,13 @@ class APISurfaceCheck(BaseCheck):
             index = await self._fetch(urljoin(url.rstrip("/") + "/", ""))
         index_unreachable = self._is_unreachable_artifact(index)
 
-        total_probes = len(SPEC_PATHS) + len(API_PATHS) + 1
+        total_probes = len(SPEC_PATHS) + 1
         if index_unreachable and unreachable_probes == total_probes:
             return self._inconclusive_result(
                 category="api_surface",
                 reason="API probes and homepage HTML were unreachable",
                 details={
                     "spec_found": spec_found,
-                    "api_found": api_found,
                     "probe_status": probe_status,
                     "graphql_options_status": graphql.get("status_code"),
                 },
@@ -116,7 +93,7 @@ class APISurfaceCheck(BaseCheck):
             signals.append(Signal(name="html:api_doc_links", value=len(doc_links), severity=Severity.PASS))
 
         has_spec = any(spec_found.values())
-        has_docs_or_api_surface = bool(doc_links or graphql_enabled or any(api_found.values()))
+        has_docs_or_api_surface = bool(doc_links or graphql_enabled)
 
         if has_spec:
             score = 1.0
@@ -135,7 +112,6 @@ class APISurfaceCheck(BaseCheck):
             signals=signals,
             details={
                 "spec_found": spec_found,
-                "api_found": api_found,
                 "probe_status": probe_status,
                 "graphql_options_status": graphql.get("status_code"),
                 "doc_links": doc_links,
@@ -171,3 +147,14 @@ class APISurfaceCheck(BaseCheck):
             return False
         path = urlparse(final_url).path.lower()
         return any(token in path for token in tokens)
+
+    @staticmethod
+    def _is_expected_spec_content_type(path: str, content_type: str | None) -> bool:
+        if content_type is None:
+            return False
+        normalized = content_type.split(";", 1)[0].strip().lower()
+        if path.endswith(".json"):
+            return normalized in {"application/json", "application/vnd.oai.openapi+json"}
+        if path.endswith(".yaml"):
+            return normalized in {"application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml", "application/vnd.oai.openapi"}
+        return True

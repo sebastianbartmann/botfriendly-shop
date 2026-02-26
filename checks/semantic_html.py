@@ -174,11 +174,15 @@ class SemanticHtmlCheck(BaseCheck):
         semantic_elements_score, semantic_elements_used = self._check_semantic_elements(soup)
         heading_score, heading_details = self._check_heading_hierarchy(soup, parser.h1_count)
         nav_list_score, nav_list_details = self._check_semantic_navigation_lists(soup)
+        csr_trap_score, csr_trap_details = self._check_csr_trap(soup, html_text)
+        waf_score, waf_details = self._check_waf_interference(status_code, html_text)
 
         item_scores = [
             semantic_elements_score,
             heading_score,
             nav_list_score,
+            csr_trap_score,
+            waf_score,
         ]
         score = sum(item_scores) / len(item_scores)
         if not html.strip():
@@ -208,6 +212,16 @@ class SemanticHtmlCheck(BaseCheck):
                 value=nav_list_details["summary"],
                 severity=self._severity_for_score(nav_list_score),
             ),
+            Signal(
+                name="csr_trap",
+                value=csr_trap_details["summary"],
+                severity=self._severity_for_score(csr_trap_score),
+            ),
+            Signal(
+                name="waf_interference",
+                value=waf_details["summary"],
+                severity=self._severity_for_score(waf_score),
+            ),
         ]
 
         recommendations: list[str] = []
@@ -217,6 +231,10 @@ class SemanticHtmlCheck(BaseCheck):
             recommendations.append("Use at least one <h1> and avoid skipped heading levels (e.g., h2 -> h4).")
         if nav_list_score < 1.0:
             recommendations.append("Mark navigation menus with semantic list markup (<ul>/<ol>/<li>) inside navigation landmarks.")
+        if csr_trap_score < 1.0:
+            recommendations.append("Server-render key storefront content in initial HTML; avoid shipping only a JS app shell.")
+        if waf_score < 1.0:
+            recommendations.append("Allow non-browser AI fetchers through bot protection for read-only storefront pages.")
 
         return CheckResult(
             category="semantic_html",
@@ -228,6 +246,8 @@ class SemanticHtmlCheck(BaseCheck):
                 "semantic_elements_used": semantic_elements_used,
                 "heading_hierarchy": heading_details,
                 "semantic_navigation_lists": nav_list_details,
+                "csr_trap": csr_trap_details,
+                "waf_interference": waf_details,
             },
             recommendations=recommendations,
         )
@@ -327,4 +347,55 @@ class SemanticHtmlCheck(BaseCheck):
             "navigation_regions": len(deduped_nav_containers),
             "semantic_navigation_regions": semantic_nav_count,
             "summary": f"regions={len(deduped_nav_containers)}, semantic={semantic_nav_count}",
+        }
+
+    @staticmethod
+    def _check_csr_trap(soup, html_text: str) -> tuple[float, dict]:
+        root_markers = (
+            "id='root'",
+            'id="root"',
+            "id='app'",
+            'id="app"',
+            "id='__next'",
+            'id="__next"',
+            "id='__nuxt'",
+            'id="__nuxt"',
+        )
+        html_lower = html_text.lower()
+        has_root_marker = any(marker in html_lower for marker in root_markers)
+        scripts = soup.find_all("script")
+        script_count = len(scripts)
+        text_length = len(" ".join(soup.stripped_strings))
+        is_sparse_text = text_length < 200
+        script_heavy = script_count >= 5
+        likely_csr_shell = has_root_marker and (is_sparse_text or script_heavy)
+        summary = f"root={has_root_marker}, scripts={script_count}, text_len={text_length}"
+        return (0.0 if likely_csr_shell else 1.0), {
+            "likely_csr_shell": likely_csr_shell,
+            "has_root_marker": has_root_marker,
+            "script_count": script_count,
+            "visible_text_length": text_length,
+            "summary": summary,
+        }
+
+    @staticmethod
+    def _check_waf_interference(status_code: int | None, html_text: str) -> tuple[float, dict]:
+        html_lower = html_text.lower()
+        waf_markers = [
+            "just a moment",
+            "cf-please-wait",
+            "checking your browser",
+            "attention required",
+            "captcha",
+            "datadome",
+            "perimeterx",
+        ]
+        matched = [marker for marker in waf_markers if marker in html_lower]
+        blocked = bool(matched) or status_code == 403
+        summary = "blocked_or_challenged" if blocked else "not_detected"
+        return (0.0 if blocked else 1.0), {
+            "blocked_or_challenged": blocked,
+            "status_code": status_code,
+            "matched_markers": matched,
+            "summary": summary,
         }

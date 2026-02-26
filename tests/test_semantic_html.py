@@ -45,11 +45,13 @@ async def test_semantic_html_full_html_scores_full():
 
     assert result.score == 1.0
     assert result.severity == Severity.PASS
-    assert len(result.signals) == 3
+    assert len(result.signals) == 5
     assert {signal.name for signal in result.signals} == {
         "semantic_elements",
         "heading_hierarchy",
         "semantic_navigation_lists",
+        "csr_trap",
+        "waf_interference",
     }
     assert all(signal.name != "content_semantic_elements" for signal in result.signals)
     assert "content_semantic_elements" not in result.details
@@ -125,7 +127,7 @@ async def test_semantic_html_heading_hierarchy_multiple_h1_is_partial():
     assert result.details["heading_hierarchy"]["starts_with_h2"] is False
     assert result.details["heading_hierarchy"]["summary"] == "h1=2, skips=0"
     assert result.details["heading_hierarchy"]["skipped_transitions"] == 0
-    assert result.score == pytest.approx((1.0 + 0.75 + 1.0) / 3)
+    assert result.score == pytest.approx((1.0 + 0.75 + 1.0 + 1.0 + 1.0) / 5)
 
 
 @pytest.mark.asyncio
@@ -143,7 +145,7 @@ async def test_semantic_html_heading_hierarchy_starting_at_h2_without_h1_is_lowe
     assert heading["summary"] == "h1=0, skips=0"
     assert heading["message"] == "Headings start at <h2> without a primary <h1>."
     assert next(s for s in result.signals if s.name == "heading_hierarchy").severity == Severity.PARTIAL
-    assert result.score == pytest.approx((0.25 + 0.0 + 0.0) / 3)
+    assert result.score == pytest.approx((0.25 + 0.0 + 0.0 + 1.0 + 1.0) / 5)
 
 
 @pytest.mark.asyncio
@@ -170,7 +172,7 @@ async def test_semantic_html_aria_nav_without_lists_is_mild_penalty():
     assert nav["semantic_navigation_regions"] == 0
     assert nav["summary"] == "regions=1, semantic=0"
     assert next(s for s in result.signals if s.name == "semantic_navigation_lists").severity == Severity.PARTIAL
-    assert result.score == pytest.approx((0.0 + 1.0 + 0.75) / 3)
+    assert result.score == pytest.approx((0.0 + 1.0 + 0.75 + 1.0 + 1.0) / 5)
 
 
 @pytest.mark.asyncio
@@ -182,6 +184,30 @@ async def test_semantic_html_nav_with_semantic_list_passes():
 
     assert result.details["semantic_navigation_lists"]["semantic_navigation_regions"] == 1
     assert next(s for s in result.signals if s.name == "semantic_navigation_lists").severity == Severity.PASS
+
+
+@pytest.mark.asyncio
+async def test_semantic_html_csr_shell_is_flagged():
+    check = SemanticHtmlCheck()
+    html = "<html><body><div id='root'></div><script></script><script></script><script></script><script></script><script></script></body></html>"
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    csr_signal = next(s for s in result.signals if s.name == "csr_trap")
+    assert result.details["csr_trap"]["likely_csr_shell"] is True
+    assert csr_signal.severity == Severity.FAIL
+
+
+@pytest.mark.asyncio
+async def test_semantic_html_waf_challenge_is_flagged():
+    check = SemanticHtmlCheck()
+    html = "<html><head><title>Just a moment...</title></head><body><div id='cf-please-wait'></div></body></html>"
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    waf_signal = next(s for s in result.signals if s.name == "waf_interference")
+    assert result.details["waf_interference"]["blocked_or_challenged"] is True
+    assert waf_signal.severity == Severity.FAIL
 
 
 @pytest.mark.asyncio

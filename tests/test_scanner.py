@@ -4,6 +4,7 @@ from collections.abc import Sequence
 
 from checks.base import BaseCheck
 from checks.accessibility import AccessibilityCheck
+from checks.discovery import DISCOVERY_PATHS
 from checks.semantic_html import SemanticHtmlCheck
 from core.models import CheckResult, Severity
 from core.scanner import Scanner
@@ -87,9 +88,7 @@ async def test_scanner_average_score_with_stub_checks(monkeypatch, fake_stream_f
                 f"{base}": (404, ""),
                 f"{base}robots.txt": (404, ""),
                 f"{base}sitemap.xml": (404, ""),
-                f"{base}llms.txt": (404, ""),
-                f"{base}llms-full.txt": (404, ""),
-                f"{base}.well-known/mcp.json": (404, ""),
+                **{f"{base}{path.lstrip('/')}": (404, "") for path in DISCOVERY_PATHS},
             }
         ),
         raising=True,
@@ -114,9 +113,7 @@ async def test_scanner_handles_no_checks(monkeypatch, fake_stream_factory):
                 f"{base}": (404, ""),
                 f"{base}robots.txt": (404, ""),
                 f"{base}sitemap.xml": (404, ""),
-                f"{base}llms.txt": (404, ""),
-                f"{base}llms-full.txt": (404, ""),
-                f"{base}.well-known/mcp.json": (404, ""),
+                **{f"{base}{path.lstrip('/')}": (404, "") for path in DISCOVERY_PATHS},
             }
         ),
         raising=True,
@@ -140,6 +137,8 @@ async def test_scanner_http_pass_fetches_common_files(monkeypatch, fake_stream_f
         f"{base}llms.txt": (200, "ok"),
         f"{base}llms-full.txt": (404, ""),
         f"{base}.well-known/mcp.json": (404, ""),
+        f"{base}.well-known/ai-plugin.json": (404, ""),
+        f"{base}.well-known/openai.yaml": (404, ""),
     }
     monkeypatch.setattr(httpx.AsyncClient, "stream", fake_stream_factory(route_map), raising=True)
 
@@ -167,6 +166,8 @@ async def test_scanner_http_pass_captures_content_type_and_final_url(monkeypatch
                 f"{base}llms.txt": (200, "ok", "text/plain", f"{base}llms.txt"),
                 f"{base}llms-full.txt": (200, "ok", "text/plain", f"{base}llms-full.txt"),
                 f"{base}.well-known/mcp.json": (200, "{}", "application/json", f"{base}.well-known/mcp.json"),
+                f"{base}.well-known/ai-plugin.json": (200, "{}", "application/json", f"{base}.well-known/ai-plugin.json"),
+                f"{base}.well-known/openai.yaml": (200, "openapi: 3.1.0", "application/yaml", f"{base}.well-known/openai.yaml"),
             }
         ),
         raising=True,
@@ -179,6 +180,8 @@ async def test_scanner_http_pass_captures_content_type_and_final_url(monkeypatch
     assert artifacts["llms.txt"]["final_url"] == "https://example.com/llms.txt"
     assert artifacts[".well-known/mcp.json"]["content_type"] == "application/json"
     assert artifacts[".well-known/mcp.json"]["final_url"] == "https://example.com/.well-known/mcp.json"
+    assert artifacts[".well-known/openai.yaml"]["content_type"] == "application/yaml"
+    assert artifacts[".well-known/openai.yaml"]["final_url"] == "https://example.com/.well-known/openai.yaml"
 
 
 @pytest.mark.asyncio
@@ -187,7 +190,14 @@ async def test_scanner_passes_url_to_checks(monkeypatch, fake_stream_factory):
     monkeypatch.setattr(
         httpx.AsyncClient,
         "stream",
-        fake_stream_factory({f"{base}{path}": (404, "") for path in ["", "robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt", ".well-known/mcp.json"]}),
+        fake_stream_factory(
+            {
+                f"{base}": (404, ""),
+                f"{base}robots.txt": (404, ""),
+                f"{base}sitemap.xml": (404, ""),
+                **{f"{base}{path.lstrip('/')}": (404, "") for path in DISCOVERY_PATHS},
+            }
+        ),
         raising=True,
     )
 

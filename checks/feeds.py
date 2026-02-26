@@ -1,84 +1,41 @@
 from __future__ import annotations
 
-from urllib.parse import urljoin
-
 import httpx
 
 from checks.base import BaseCheck
 from checks.html_extract import parse_html_features
 from core.models import CheckResult, Severity, Signal
 
-FEED_PATHS = ["/feed.xml", "/feeds/products.atom", "/products.json", "/feed"]
-
 
 class FeedsCheck(BaseCheck):
     requires_browser = False
 
     async def run(self, url: str, artifacts: dict) -> CheckResult:
-        found_paths: dict[str, bool] = {}
-        path_status: dict[str, str] = {}
-        signals: list[Signal] = []
-        unreachable_paths = 0
-
-        for path in FEED_PATHS:
-            key = path.lstrip("/")
-            response_data = artifacts.get(key)
-            if response_data is None:
-                response_data = await self._fetch(urljoin(url.rstrip("/") + "/", key))
-
-            unreachable = self._is_unreachable_artifact(response_data)
-            content_type = response_data.get("content_type")
-            is_html_response = isinstance(content_type, str) and "text/html" in content_type.lower()
-            exists = response_data.get("status_code") == 200 and not is_html_response and not unreachable
-            found_paths[path] = exists
-            path_status[path] = "found" if exists else "unknown" if unreachable else "not_found"
-            if unreachable:
-                unreachable_paths += 1
-            signals.append(
-                Signal(
-                    name=f"path:{path}",
-                    value=path_status[path],
-                    severity=Severity.PASS if exists else Severity.INCONCLUSIVE if unreachable else Severity.FAIL,
-                )
-            )
-
         index = artifacts.get("index")
         if index is None:
-            index = await self._fetch(urljoin(url.rstrip("/") + "/", ""))
-        index_unreachable = self._is_unreachable_artifact(index)
-
-        if index_unreachable and unreachable_paths == len(FEED_PATHS):
-            return self._inconclusive_result(
-                category="feeds",
-                reason="Feed endpoints and homepage HTML were unreachable",
-                details={"found_paths": found_paths, "path_status": path_status},
-            )
+            index = await self._fetch(url)
+        if self._is_unreachable_artifact(index):
+            return self._inconclusive_result(category="feeds", reason="Homepage HTML unreachable", details={"status_code": index.get("status_code")})
 
         html = index.get("text", "") if index.get("status_code") == 200 else ""
         parser = parse_html_features(html)
 
-        alternate_feeds = [
-            link for link in parser.links if "alternate" in link.get("rel", "") and ("atom+xml" in link.get("type", "") or "rss+xml" in link.get("type", ""))
+        feed_links = [
+            link
+            for link in parser.links
+            if "alternate" in link.get("rel", "")
+            and ("atom+xml" in link.get("type", "") or "rss+xml" in link.get("type", "") or "json" in link.get("type", ""))
         ]
-        feed_hrefs = [link.get("href", "") for link in alternate_feeds]
+        feed_hrefs = [link.get("href", "") for link in feed_links if link.get("href")]
+        structured_feed_hints = [href for href in feed_hrefs if any(token in href.lower() for token in ("product", "catalog", "shop", "merchant", "item"))]
 
         html_lower = html.lower()
         has_google_shopping_hint = any(
             hint in html_lower for hint in ["google shopping", "merchant center", "shopping feed", "g:price"]
         )
 
-        has_structured_product_feed = (
-            found_paths.get("/feeds/products.atom", False)
-            or found_paths.get("/products.json", False)
-            or any("products.atom" in href.lower() or "products.json" in href.lower() for href in feed_hrefs)
-            or has_google_shopping_hint
-        )
-
-        has_generic_feed = (
-            found_paths.get("/feed.xml", False)
-            or found_paths.get("/feed", False)
-            or len(alternate_feeds) > 0
-        )
+        has_structured_product_feed = bool(structured_feed_hints) or has_google_shopping_hint
+        has_generic_feed = len(feed_hrefs) > 0
 
         if has_structured_product_feed:
             score = 1.0
@@ -90,8 +47,21 @@ class FeedsCheck(BaseCheck):
             score = 0.0
             severity = Severity.FAIL
 
-        if alternate_feeds:
-            signals.append(Signal(name="html:alternate_feed_links", value=len(alternate_feeds), severity=Severity.PASS))
+        signals: list[Signal] = []
+        signals.append(
+            Signal(
+                name="html:alternate_feed_links",
+                value=len(feed_hrefs),
+                severity=Severity.PASS if feed_hrefs else Severity.FAIL,
+            )
+        )
+        signals.append(
+            Signal(
+                name="html:structured_feed_hints",
+                value=len(structured_feed_hints),
+                severity=Severity.PASS if structured_feed_hints else Severity.INCONCLUSIVE,
+            )
+        )
         signals.append(
             Signal(
                 name="html:google_shopping_hint",
@@ -106,18 +76,19 @@ class FeedsCheck(BaseCheck):
             severity=severity,
             signals=signals,
             details={
-                "found_paths": found_paths,
-                "path_status": path_status,
                 "alternate_feed_hrefs": feed_hrefs,
+                "structured_feed_hrefs": structured_feed_hints,
                 "google_shopping_hint": has_google_shopping_hint,
             },
-            recommendations=["Expose a structured product feed (for example /products.json or products atom feed)."] if score < 1.0 else [],
+            recommendations=["Expose feed URLs with <link rel='alternate'> metadata and use product-oriented feed naming where possible."]
+            if score < 1.0
+            else [],
         )
 
     async def _fetch(self, url: str) -> dict:
         async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url.rstrip("/") + "/")
             except httpx.HTTPError:
                 return {"status_code": None, "text": "", "content_type": None, "final_url": None}
         return {

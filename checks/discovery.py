@@ -12,6 +12,8 @@ DISCOVERY_PATHS = [
     "/llms.txt",
     "/llms-full.txt",
     "/.well-known/mcp.json",
+    "/.well-known/ai-plugin.json",
+    "/.well-known/openai.yaml",
 ]
 
 
@@ -108,6 +110,8 @@ class DiscoveryCheck(BaseCheck):
             return normalized == "text/plain"
         if path.endswith(".json"):
             return normalized == "application/json"
+        if path.endswith(".yaml"):
+            return normalized in {"application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml", "application/vnd.oai.openapi"}
         return False
 
     @staticmethod

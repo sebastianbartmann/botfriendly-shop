@@ -96,6 +96,24 @@ async def test_structured_data_offer_only_jsonld_scores_full():
 
 
 @pytest.mark.asyncio
+async def test_structured_data_action_schema_is_detected():
+    check = StructuredDataCheck()
+    html = """
+    <html><head>
+      <script type='application/ld+json'>
+        {"@context":"https://schema.org","@type":"WebSite","potentialAction":{"@type":"SearchAction","target":"https://example.com/search?q={query}"}}
+      </script>
+    </head></html>
+    """
+
+    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
+
+    assert "SearchAction" in result.details["action_schema_types"]
+    action_signal = next(s for s in result.signals if s.name == "schema:agent_actions")
+    assert action_signal.severity == Severity.PASS
+
+
+@pytest.mark.asyncio
 async def test_structured_data_mixed_valid_and_malformed_jsonld_uses_valid_score():
     check = StructuredDataCheck()
     html = """

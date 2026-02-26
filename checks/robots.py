@@ -13,13 +13,14 @@ from core.models import CheckResult, Severity, Signal
 class AIBot:
     name: str
     operator: str
-    tier: str  # agent | crawler
+    tier: str  # agent | training_crawler | search_indexer
     description: str
 
 
 TIER_LABELS = {
     "agent": "AI Shopping Agents",
-    "crawler": "AI Crawlers & Search",
+    "training_crawler": "AI Training Crawlers",
+    "search_indexer": "AI Search Indexers & Retrieval",
 }
 
 AI_BOTS: list[AIBot] = [
@@ -28,24 +29,24 @@ AI_BOTS: list[AIBot] = [
     AIBot("AmazonBuyForMe", "Amazon", "agent", "Purchases products on behalf of Amazon customers"),
     AIBot("NovaAct", "Amazon", "agent", "Amazon's browser automation agent"),
     AIBot("GoogleAgent-Mariner", "Google", "agent", "Google's web browsing AI agent"),
-    AIBot("GPTBot", "OpenAI", "crawler", "Crawls sites to train OpenAI models"),
-    AIBot("OAI-SearchBot", "OpenAI", "crawler", "Indexes content for SearchGPT results"),
-    AIBot("ChatGPT-User", "OpenAI", "crawler", "Fetches pages when ChatGPT users ask questions"),
-    AIBot("ClaudeBot", "Anthropic", "crawler", "Crawls sites to train Anthropic's models"),
-    AIBot("Claude-User", "Anthropic", "crawler", "Fetches pages when Claude users ask questions"),
-    AIBot("Claude-SearchBot", "Anthropic", "crawler", "Indexes content for Claude search results"),
-    AIBot("Google-Extended", "Google", "crawler", "Crawls sites to train Gemini and Vertex AI"),
-    AIBot("Gemini-Deep-Research", "Google", "crawler", "Fetches pages for Gemini's deep research feature"),
-    AIBot("PerplexityBot", "Perplexity", "crawler", "Indexes content for Perplexity search"),
-    AIBot("Perplexity-User", "Perplexity", "crawler", "Fetches pages when Perplexity users ask questions"),
-    AIBot("Amazonbot", "Amazon", "crawler", "Crawls sites for Alexa answers"),
-    AIBot("Meta-ExternalAgent", "Meta", "crawler", "Crawls sites to train Meta AI models"),
-    AIBot("meta-externalfetcher", "Meta", "crawler", "Fetches pages for Meta AI responses"),
-    AIBot("Applebot-Extended", "Apple", "crawler", "Crawls sites to train Apple Intelligence"),
-    AIBot("FacebookBot", "Meta", "crawler", "Crawls sites for Meta's language models"),
-    AIBot("DeepSeekBot", "DeepSeek", "crawler", "Crawls sites to train DeepSeek models"),
-    AIBot("Bytespider", "ByteDance", "crawler", "ByteDance crawler for LLM training"),
-    AIBot("CCBot", "Common Crawl", "crawler", "Common Crawl archive, used by many LLM projects"),
+    AIBot("GPTBot", "OpenAI", "training_crawler", "Crawls sites to train OpenAI models"),
+    AIBot("OAI-SearchBot", "OpenAI", "search_indexer", "Indexes content for SearchGPT results"),
+    AIBot("ChatGPT-User", "OpenAI", "search_indexer", "Fetches pages when ChatGPT users ask questions"),
+    AIBot("ClaudeBot", "Anthropic", "training_crawler", "Crawls sites to train Anthropic's models"),
+    AIBot("Claude-User", "Anthropic", "search_indexer", "Fetches pages when Claude users ask questions"),
+    AIBot("Claude-SearchBot", "Anthropic", "search_indexer", "Indexes content for Claude search results"),
+    AIBot("Google-Extended", "Google", "training_crawler", "Crawls sites to train Gemini and Vertex AI"),
+    AIBot("Gemini-Deep-Research", "Google", "search_indexer", "Fetches pages for Gemini's deep research feature"),
+    AIBot("PerplexityBot", "Perplexity", "search_indexer", "Indexes content for Perplexity search"),
+    AIBot("Perplexity-User", "Perplexity", "search_indexer", "Fetches pages when Perplexity users ask questions"),
+    AIBot("Amazonbot", "Amazon", "search_indexer", "Crawls sites for Alexa answers"),
+    AIBot("Meta-ExternalAgent", "Meta", "training_crawler", "Crawls sites to train Meta AI models"),
+    AIBot("meta-externalfetcher", "Meta", "search_indexer", "Fetches pages for Meta AI responses"),
+    AIBot("Applebot-Extended", "Apple", "training_crawler", "Crawls sites to train Apple Intelligence"),
+    AIBot("FacebookBot", "Meta", "training_crawler", "Crawls sites for Meta's language models"),
+    AIBot("DeepSeekBot", "DeepSeek", "training_crawler", "Crawls sites to train DeepSeek models"),
+    AIBot("Bytespider", "ByteDance", "training_crawler", "ByteDance crawler for LLM training"),
+    AIBot("CCBot", "Common Crawl", "training_crawler", "Common Crawl archive, used by many LLM projects"),
 ]
 
 
@@ -91,7 +92,7 @@ class RobotsCheck(BaseCheck):
                 severity=Severity.FAIL,
                 signals=signals,
                 details=details,
-                recommendations=["Publish a robots.txt policy for AI bots and search crawlers."],
+                recommendations=["Publish a robots.txt policy for AI shopping agents and AI crawlers."],
             )
 
         bot_states = self._parse_bot_states(body)
@@ -119,7 +120,9 @@ class RobotsCheck(BaseCheck):
             severity=severity,
             signals=signals,
             details=details,
-            recommendations=["Allow major AI shopping agents and crawlers in robots.txt where appropriate."] if score < 1.0 else [],
+            recommendations=["Set separate robots.txt policies for shopping agents, search indexers, and training crawlers."]
+            if score < 1.0
+            else [],
         )
 
     async def _fetch(self, url: str) -> dict:

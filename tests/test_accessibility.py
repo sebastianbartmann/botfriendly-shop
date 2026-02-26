@@ -59,7 +59,7 @@ async def test_accessibility_full_html_scores_full():
 
     assert result.score == 1.0
     assert result.severity == Severity.PASS
-    assert len(result.signals) == 6
+    assert len(result.signals) == 5
 
 
 @pytest.mark.asyncio
@@ -207,28 +207,6 @@ async def test_accessibility_link_quality_flags_expanded_generic_words_full_matc
     assert result.details["link_quality"]["descriptive_links"] == 1
     assert result.details["link_quality"]["total_links"] == 5
     assert next(s for s in result.signals if s.name == "link_quality").severity == Severity.PARTIAL
-
-
-@pytest.mark.asyncio
-async def test_accessibility_skip_navigation_detected():
-    check = AccessibilityCheck()
-    html = "<html><body><a href='#content'>Skip to content</a><h1>Title</h1></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    assert result.details["skip_navigation"]["present"] is True
-    assert next(s for s in result.signals if s.name == "skip_navigation").severity == Severity.PASS
-
-
-@pytest.mark.asyncio
-async def test_accessibility_skip_navigation_missing_is_fail_signal():
-    check = AccessibilityCheck()
-    html = "<html><body><h1>Title</h1><a href='#details'>Jump to details</a></body></html>"
-
-    result = await check.run("https://example.com", {"index": {"status_code": 200, "text": html}})
-
-    assert result.details["skip_navigation"]["present"] is False
-    assert next(s for s in result.signals if s.name == "skip_navigation").severity == Severity.FAIL
 
 
 @pytest.mark.asyncio

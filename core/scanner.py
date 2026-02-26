@@ -77,9 +77,10 @@ class Scanner:
             ("index", urljoin(url.rstrip("/") + "/", "")),
             ("robots.txt", urljoin(url.rstrip("/") + "/", "robots.txt")),
             ("sitemap.xml", urljoin(url.rstrip("/") + "/", "sitemap.xml")),
-            ("llms.txt", urljoin(url.rstrip("/") + "/", "llms.txt")),
-            ("llms-full.txt", urljoin(url.rstrip("/") + "/", "llms-full.txt")),
-            (".well-known/mcp.json", urljoin(url.rstrip("/") + "/", ".well-known/mcp.json")),
+            *[
+                (path.lstrip("/"), urljoin(url.rstrip("/") + "/", path.lstrip("/")))
+                for path in DISCOVERY_PATHS
+            ],
         ]
 
         async with httpx.AsyncClient(
@@ -99,9 +100,10 @@ class Scanner:
                     ("index", urljoin(fallback_base.rstrip("/") + "/", "")),
                     ("robots.txt", urljoin(fallback_base.rstrip("/") + "/", "robots.txt")),
                     ("sitemap.xml", urljoin(fallback_base.rstrip("/") + "/", "sitemap.xml")),
-                    ("llms.txt", urljoin(fallback_base.rstrip("/") + "/", "llms.txt")),
-                    ("llms-full.txt", urljoin(fallback_base.rstrip("/") + "/", "llms-full.txt")),
-                    (".well-known/mcp.json", urljoin(fallback_base.rstrip("/") + "/", ".well-known/mcp.json")),
+                    *[
+                        (path.lstrip("/"), urljoin(fallback_base.rstrip("/") + "/", path.lstrip("/")))
+                        for path in DISCOVERY_PATHS
+                    ],
                 ]
                 async with httpx.AsyncClient(
                     follow_redirects=True,

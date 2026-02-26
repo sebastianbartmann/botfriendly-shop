@@ -9,6 +9,7 @@ from checks.html_extract import extract_schema_types, flatten_json_nodes, parse_
 from core.models import CheckResult, Severity, Signal
 
 SCHEMA_TYPES = ["Product", "Offer", "AggregateRating", "Organization", "WebSite", "BreadcrumbList"]
+ACTION_SCHEMA_TYPES = {"PotentialAction", "SearchAction", "BuyAction"}
 OG_TAGS = ["og:title", "og:type", "og:image", "og:price:amount", "og:price:currency", "product:price:amount"]
 
 
@@ -37,6 +38,8 @@ class StructuredDataCheck(BaseCheck):
 
         found_og_tags = [tag for tag in OG_TAGS if tag in parser.meta]
         has_product_types = "Product" in schema_types or "Offer" in schema_types
+        found_action_types = sorted(action for action in ACTION_SCHEMA_TYPES if action in schema_types)
+        has_action_types = bool(found_action_types)
 
         if has_product_types:
             score = 1.0
@@ -55,6 +58,13 @@ class StructuredDataCheck(BaseCheck):
         for schema_type in SCHEMA_TYPES:
             if schema_type in schema_types:
                 signals.append(Signal(name=f"schema:{schema_type}", value=True, severity=Severity.PASS))
+        signals.append(
+            Signal(
+                name="schema:agent_actions",
+                value=found_action_types if found_action_types else "missing",
+                severity=Severity.PASS if has_action_types else Severity.INCONCLUSIVE,
+            )
+        )
         for tag in found_og_tags:
             signals.append(Signal(name=f"meta:{tag}", value=True, severity=Severity.PASS))
         if malformed_blocks:
@@ -69,10 +79,17 @@ class StructuredDataCheck(BaseCheck):
                 "status_code": status_code,
                 "json_ld_block_count": len(parser.json_ld_blocks),
                 "schema_types": sorted(schema_types),
+                "action_schema_types": found_action_types,
                 "open_graph_tags": sorted(found_og_tags),
                 "malformed_json_ld_blocks": malformed_blocks,
             },
-            recommendations=["Add valid Product/Offer schema.org JSON-LD and core OpenGraph metadata."] if score < 1.0 else [],
+            recommendations=(
+                ["Add valid Product/Offer schema.org JSON-LD and core OpenGraph metadata."]
+                if score < 1.0
+                else ["Add PotentialAction/SearchAction/BuyAction schema to better support agentic shopping flows."]
+                if not has_action_types
+                else []
+            ),
         )
 
     async def _fetch(self, url: str) -> dict:

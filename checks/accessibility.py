@@ -190,7 +190,6 @@ class AccessibilityCheck(BaseCheck):
         landmarks_score, landmarks_details = self._check_landmarks(soup)
         form_labels_score, form_labels_details = self._check_form_labels(soup)
         link_quality_score, link_quality_details = self._check_link_quality(soup)
-        skip_nav_score, skip_nav_details = self._check_skip_navigation(soup)
         table_accessibility_score, table_accessibility_details = self._check_table_accessibility(soup)
 
         item_scores = [
@@ -198,7 +197,6 @@ class AccessibilityCheck(BaseCheck):
             landmarks_score,
             form_labels_score,
             link_quality_score,
-            skip_nav_score,
             table_accessibility_score,
         ]
         score = sum(item_scores) / len(item_scores)
@@ -235,11 +233,6 @@ class AccessibilityCheck(BaseCheck):
                 severity=self._severity_for_score(link_quality_score),
             ),
             Signal(
-                name="skip_navigation",
-                value=skip_nav_details["summary"],
-                severity=self._severity_for_score(skip_nav_score),
-            ),
-            Signal(
                 name="table_accessibility",
                 value=table_accessibility_details["summary"],
                 severity=(
@@ -260,8 +253,6 @@ class AccessibilityCheck(BaseCheck):
             recommendations.append("Associate each form input with a visible <label>, aria-label, or aria-labelledby.")
         if link_quality_score < 1.0:
             recommendations.append("Use descriptive link text instead of generic phrases like 'click here' or 'read more'.")
-        if skip_nav_score < 1.0:
-            recommendations.append("Add a skip-to-content link near the top of the page for keyboard and assistive tech users.")
         if table_accessibility_details["table_count"] > 0 and table_accessibility_score < 1.0:
             recommendations.append("For data tables, use <thead>, header cells (<th>), and scope attributes.")
 
@@ -276,7 +267,6 @@ class AccessibilityCheck(BaseCheck):
                 "landmarks": landmarks_details,
                 "form_labels": form_labels_details,
                 "link_quality": link_quality_details,
-                "skip_navigation": skip_nav_details,
                 "table_accessibility": table_accessibility_details,
             },
             recommendations=recommendations,
@@ -371,16 +361,6 @@ class AccessibilityCheck(BaseCheck):
 
         ratio = descriptive_links / total_links
         return ratio, {"total_links": total_links, "descriptive_links": descriptive_links, "ratio": ratio}
-
-    @staticmethod
-    def _check_skip_navigation(soup) -> tuple[float, dict]:
-        for link in soup.find_all("a"):
-            href = (link.get("href") or "").strip().lower()
-            text = " ".join(link.stripped_strings).strip().lower()
-            if "skip" in text and href.startswith("#"):
-                return 1.0, {"present": True, "href": href, "summary": href}
-
-        return 0.0, {"present": False, "href": "", "summary": "missing"}
 
     @staticmethod
     def _check_table_accessibility(soup) -> tuple[float, dict]:
