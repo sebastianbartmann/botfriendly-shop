@@ -28,6 +28,47 @@
     }
     .form-row { display: flex; align-items: center; gap: .9rem; margin-top: .75rem; flex-wrap: wrap; }
     .inline-field { display: flex; align-items: center; gap: .4rem; color: var(--text-secondary); font-size: .9rem; }
+    .url-list-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .45rem; }
+    .url-list-header label { color: var(--text-secondary); font-size: .9rem; font-weight: 700; }
+    #load-defaults-btn { padding: .42rem .65rem; font-size: .82rem; }
+    #load-defaults-status { margin-top: .4rem; color: var(--muted); font-size: .82rem; min-height: 1.2em; }
+    .tooltip-wrap { position: relative; display: inline-flex; align-items: center; margin-left: .15rem; }
+    .tooltip-icon {
+      width: 1rem;
+      height: 1rem;
+      border: 1px solid var(--border-strong);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      line-height: 1;
+      color: var(--muted);
+      cursor: help;
+      user-select: none;
+    }
+    .tooltip-text {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      background: #151d16;
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: .48rem .56rem;
+      min-width: 260px;
+      max-width: 360px;
+      font-size: .75rem;
+      line-height: 1.35;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .12s ease;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .tooltip-wrap:hover .tooltip-text { opacity: 1; visibility: visible; }
     .inline-field input[type=number] {
       width: 80px;
       background: var(--bg);
@@ -118,11 +159,11 @@
           </div>
           <div class="card summary-card">
             <p class="muted">Latest Scan</p>
-            <p class="summary-value mono">{{ db_stats.latest_scan or "N/A" }}</p>
+            <p class="summary-value mono">{{ db_stats.latest_scan[:10] if db_stats.latest_scan else "N/A" }}</p>
           </div>
           <div class="card summary-card">
             <p class="muted">Oldest Scan</p>
-            <p class="summary-value mono">{{ db_stats.oldest_scan or "N/A" }}</p>
+            <p class="summary-value mono">{{ db_stats.oldest_scan[:10] if db_stats.oldest_scan else "N/A" }}</p>
           </div>
         </div>
         <table class="admin-table">
@@ -166,13 +207,32 @@
         {% endif %}
 
         <form id="batch-form">
+          <div class="url-list-header">
+            <label for="url-list">URL List</label>
+            <button type="button" id="load-defaults-btn" class="btn-secondary">Load default URLs (~500)</button>
+          </div>
           <textarea id="url-list" name="urls" rows="20">{{ url_list }}</textarea>
+          <div id="load-defaults-status" aria-live="polite"></div>
           <div class="form-row">
             <label class="inline-field" for="concurrency">Concurrency
               <input type="number" id="concurrency" name="concurrency" value="5" min="1" max="10" />
             </label>
-            <label class="inline-field"><input type="checkbox" name="force" /> Force</label>
-            <label class="inline-field"><input type="checkbox" name="stale_only" /> Stale Only</label>
+            <label class="inline-field">
+              <input type="checkbox" name="force" />
+              Force re-scan
+              <span class="tooltip-wrap" aria-hidden="true">
+                <span class="tooltip-icon">ⓘ</span>
+                <span class="tooltip-text">Re-scan all URLs even if a fresh result exists in the database (ignores 24h cache)</span>
+              </span>
+            </label>
+            <label class="inline-field">
+              <input type="checkbox" name="stale_only" />
+              Stale only
+              <span class="tooltip-wrap" aria-hidden="true">
+                <span class="tooltip-icon">ⓘ</span>
+                <span class="tooltip-text">Only scan URLs whose last result is older than 24 hours - skips recently scanned domains</span>
+              </span>
+            </label>
           </div>
           <div class="actions">
             <button id="start-btn" type="submit" {% if batch_running %}disabled{% endif %}>Start Batch</button>
@@ -283,9 +343,31 @@
       appendLog("Cancellation requested.");
     }
 
+    async function loadDefaults() {
+      const status = document.getElementById("load-defaults-status");
+      const textarea = document.getElementById("url-list");
+      status.textContent = "Loading default URLs...";
+      try {
+        const response = await fetch("/admin/default-urls");
+        if (!response.ok) {
+          throw new Error("request failed");
+        }
+        const text = await response.text();
+        textarea.value = text;
+        const urlCount = text
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line && !line.startsWith("#")).length;
+        status.textContent = "Loaded " + urlCount + " URLs";
+      } catch {
+        status.textContent = "Failed to load default URLs";
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("batch-form").addEventListener("submit", startBatch);
       document.getElementById("cancel-btn").addEventListener("click", cancelBatch);
+      document.getElementById("load-defaults-btn").addEventListener("click", loadDefaults);
       if (document.body.dataset.batchRunning === "true") {
         connectSSE();
       }

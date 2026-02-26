@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import date, datetime
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.security import HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
@@ -35,10 +36,22 @@ def _default_db_stats() -> dict[str, Any]:
     return {
         "total_scans": 0,
         "unique_domains": 0,
-        "oldest_scan": None,
-        "latest_scan": None,
+        "oldest_scan": "N/A",
+        "latest_scan": "N/A",
         "versions": [],
     }
+
+
+def _format_scan_date(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, str):
+        return value[:10] if value else "N/A"
+    return str(value)[:10]
 
 
 def _queue_put_nowait(item: dict[str, Any]) -> None:
@@ -117,8 +130,8 @@ async def admin_page(
         return {
             "total_scans": total_scans,
             "unique_domains": unique_domains,
-            "oldest_scan": minmax_row.oldest_scan if minmax_row else None,
-            "latest_scan": minmax_row.latest_scan if minmax_row else None,
+            "oldest_scan": _format_scan_date(minmax_row.oldest_scan if minmax_row else None),
+            "latest_scan": _format_scan_date(minmax_row.latest_scan if minmax_row else None),
             "versions": [{"scanner_version": row.scanner_version, "cnt": int(row.cnt)} for row in versions],
         }
 
@@ -219,3 +232,13 @@ async def admin_batch_cancel(
     if _cancel_token is not None:
         _cancel_token.set()
     return JSONResponse({"status": "cancelling"})
+
+
+@admin_router.get("/default-urls")
+async def get_default_urls(
+    credentials: HTTPBasicCredentials = Depends(require_admin),
+):
+    del credentials
+    url_file = Path(__file__).parent.parent / "data" / "default_urls.txt"
+    content = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
+    return PlainTextResponse(content)
