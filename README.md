@@ -1,4 +1,4 @@
-# Ecom LLM Checker
+# botfriendly.shop
 
 Fast scanner for how ready an ecommerce site is for LLM and agent access.
 
@@ -23,7 +23,7 @@ python cli.py <url> --json
 ## Example Output
 
 ```text
-Ecom LLM Readiness Report
+botfriendly.shop AI Readiness Report
 URL: https://example.com
 Overall: Grade: B (0.67)
 

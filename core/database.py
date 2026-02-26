@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from core.db_models import Base
 
-DB_PATH = Path(os.getenv("ECOM_CHECKER_DB_PATH", "data/ecom_checker.db")).expanduser()
+DB_PATH = Path(os.getenv("BOTFRIENDLY_SHOP_DB_PATH", "data/botfriendly_shop.db")).expanduser()
 if not DB_PATH.is_absolute():
     DB_PATH = Path.cwd() / DB_PATH
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)

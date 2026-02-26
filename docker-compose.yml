@@ -1,18 +1,18 @@
 services:
-  ecom-llm-checker:
-    container_name: ecom-llm-checker
+  botfriendly.shop:
+    container_name: botfriendly.shop
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8084:8084"
     environment:
-      ECOM_LOG_FORMAT: json
-      ECOM_CHECKER_DB_PATH: /app/data/ecom_checker.db
+      BOTFRIENDLY_SHOP_LOG_FORMAT: json
+      BOTFRIENDLY_SHOP_DB_PATH: /app/data/botfriendly_shop.db
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: changeme
     volumes:
-      - ecom_checker_data:/app/data
+      - botfriendly_shop_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8084/"]
       interval: 30s
@@ -24,4 +24,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  ecom_checker_data:
+  botfriendly_shop_data:

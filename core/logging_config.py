@@ -42,11 +42,16 @@ def get_request_id() -> str:
 
 
 def _resolve_log_format() -> str:
-    configured = os.getenv("ECOM_LOG_FORMAT", "").strip().lower()
+    configured = os.getenv("BOTFRIENDLY_SHOP_LOG_FORMAT", "").strip().lower()
     if configured in {"json", "text"}:
         return configured
 
-    env = os.getenv("ECOM_ENV") or os.getenv("PYTHON_ENV") or os.getenv("ENV") or ""
+    env = (
+        os.getenv("BOTFRIENDLY_SHOP_ENV")
+        or os.getenv("PYTHON_ENV")
+        or os.getenv("ENV")
+        or ""
+    )
     if env.strip().lower() == "production":
         return "json"
     return "text"
@@ -54,7 +59,7 @@ def _resolve_log_format() -> str:
 
 def setup_logging() -> None:
     root = logging.getLogger()
-    log_level = os.getenv("ECOM_LOG_LEVEL", "INFO").upper()
+    log_level = os.getenv("BOTFRIENDLY_SHOP_LOG_LEVEL", "INFO").upper()
     root.setLevel(getattr(logging, log_level, logging.INFO))
 
     for handler in list(root.handlers):

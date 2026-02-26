@@ -89,7 +89,7 @@ async def admin_page(
 ):
     del credentials
 
-    url_file = Path(__file__).parent.parent / "data" / "ecom_urls.txt"
+    url_file = Path(__file__).parent.parent / "data" / "botfriendly_shop_urls.txt"
     url_list = url_file.read_text(encoding="utf-8") if url_file.exists() else ""
     default_url_file = Path(__file__).parent / "default_urls.txt"
     default_url_list = default_url_file.read_text(encoding="utf-8") if default_url_file.exists() else ""

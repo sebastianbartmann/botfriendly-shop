@@ -11,7 +11,7 @@ from uuid import uuid4
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = PROJECT_ROOT / "data" / "results"
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "ecom_checker.db"
+DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "botfriendly_shop.db"
 LEGACY_SCANNER_VERSION = "0.9.0"
 
 

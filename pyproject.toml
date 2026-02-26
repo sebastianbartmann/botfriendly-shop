@@ -1,5 +1,5 @@
 [project]
-name = "ecom-llm-checker"
+name = "botfriendly.shop"
 version = "0.1.0"
 description = "Ecommerce AI/LLM readiness checker"
 requires-python = ">=3.10"

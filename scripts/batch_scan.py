@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.batch import BatchResult, run_batch_scan
 from core.database import DB_PATH
 
-DEFAULT_URL_FILE = PROJECT_ROOT / "data" / "ecom_urls.txt"
+DEFAULT_URL_FILE = PROJECT_ROOT / "data" / "botfriendly_shop_urls.txt"
 DEFAULT_DB_PATH = DB_PATH
 
 
@@ -92,12 +92,12 @@ def parse_args() -> argparse.Namespace:
         "url_file",
         nargs="?",
         default=str(DEFAULT_URL_FILE),
-        help="Path to newline-delimited URL file (default: data/ecom_urls.txt)",
+        help="Path to newline-delimited URL file (default: data/botfriendly_shop_urls.txt)",
     )
     parser.add_argument(
         "--db-path",
         default=str(DEFAULT_DB_PATH),
-        help="Deprecated. DB path is configured via ECOM_CHECKER_DB_PATH environment variable.",
+        help="Deprecated. DB path is configured via BOTFRIENDLY_SHOP_DB_PATH.",
     )
     parser.add_argument(
         "--concurrency",

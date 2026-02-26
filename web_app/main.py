@@ -26,7 +26,7 @@ async def lifespan(_: FastAPI):
 
 
 setup_logging()
-app = FastAPI(title="Ecom LLM Readiness Checker", lifespan=lifespan)
+app = FastAPI(title="botfriendly.shop AI Readiness Checker", lifespan=lifespan)
 app.state.limiter = limiter
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 

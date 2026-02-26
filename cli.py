@@ -107,7 +107,7 @@ def print_check(check: CheckResult) -> None:
 
 def print_report(result: ScanResult) -> None:
     grade = result.metadata.get("grade", "N/A")
-    print(f"{COLOR_BOLD}{COLOR_CYAN}Ecom LLM Readiness Report{COLOR_RESET}")
+    print(f"{COLOR_BOLD}{COLOR_CYAN}botfriendly.shop AI Readiness Report{COLOR_RESET}")
     print(f"URL: {result.url}")
     print(f"Overall: Grade: {grade} ({result.overall_score:.2f})")
     print("")
