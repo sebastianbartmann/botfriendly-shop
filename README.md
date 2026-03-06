@@ -58,6 +58,16 @@ Overall: Grade: B (0.67)
 make test
 ```
 
+## Docker / Coolify
+
+Use `.env.example` as a template and set `ADMIN_USERNAME` and `ADMIN_PASSWORD` explicitly.
+
+For persistent SQLite data on redeploys:
+
+- Mount a persistent volume to `/data`.
+- Use `BOTFRIENDLY_SHOP_DB_PATH=/data/botfriendly_shop.db` (already set in `docker-compose.yml`).
+- If `BOTFRIENDLY_SHOP_DB_PATH` is not set, the app now prefers `/data` automatically when available.
+
 ## License
 
 MIT

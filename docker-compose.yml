@@ -8,11 +8,11 @@ services:
       - "8084:8084"
     environment:
       BOTFRIENDLY_SHOP_LOG_FORMAT: json
-      BOTFRIENDLY_SHOP_DB_PATH: /app/data/botfriendly_shop.db
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: changeme
+      BOTFRIENDLY_SHOP_DB_PATH: /data/botfriendly_shop.db
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?set ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
     volumes:
-      - botfriendly_shop_data:/app/data
+      - botfriendly_shop_data:/data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8084/"]
       interval: 30s

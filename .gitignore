@@ -52,5 +52,6 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 data/results/
+file::memory:
 # (ecom_urls.txt and default_urls.txt are tracked)
 *.duckdb

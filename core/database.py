@@ -9,7 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from core.db_models import Base
 
-DB_PATH = Path(os.getenv("BOTFRIENDLY_SHOP_DB_PATH", "data/botfriendly_shop.db")).expanduser()
+def _default_db_path() -> Path:
+    # Prefer mounted persistent paths in container deployments.
+    for candidate_dir in (Path("/data"), Path("/app/data")):
+        if candidate_dir.is_dir() and os.access(candidate_dir, os.W_OK):
+            return candidate_dir / "botfriendly_shop.db"
+    return Path("data/botfriendly_shop.db")
+
+
+raw_db_path = os.getenv("BOTFRIENDLY_SHOP_DB_PATH")
+DB_PATH = Path(raw_db_path).expanduser() if raw_db_path else _default_db_path()
 if not DB_PATH.is_absolute():
     DB_PATH = Path.cwd() / DB_PATH
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
